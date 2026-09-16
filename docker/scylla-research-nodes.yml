@@ -1,0 +1,123 @@
+services:
+  r-scylla1:
+    image: scylla-research:2026.3.0
+    container_name: r-scylla1
+    hostname: r-scylla1
+    command:
+      - --smp
+      - "2"
+      - --memory
+      - 2G
+      - --overprovisioned
+      - "1"
+      - --developer-mode
+      - "1"
+      - --cluster-name
+      - scylla-research
+      - --seeds
+      - r-scylla1
+      - --reactor-backend
+      - epoll
+      - --listen-address
+      - r-scylla1
+      - --rpc-address
+      - 0.0.0.0
+      - --broadcast-address
+      - r-scylla1
+      - --broadcast-rpc-address
+      - r-scylla1
+
+    volumes:
+      - research_data1:/var/lib/scylla
+    networks:
+      scylla-research-net:
+        ipv4_address: 172.29.0.11
+
+  r-scylla2:
+    image: scylla-research:2026.3.0
+    container_name: r-scylla2
+    hostname: r-scylla2
+    depends_on:
+      - r-scylla1
+    command:
+      - --smp
+      - "2"
+      - --memory
+      - 2G
+      - --overprovisioned
+      - "1"
+      - --developer-mode
+      - "1"
+      - --cluster-name
+      - scylla-research
+      - --seeds
+      - r-scylla1
+      - --reactor-backend
+      - epoll
+      - --listen-address
+      - r-scylla2
+      - --rpc-address
+      - 0.0.0.0
+      - --broadcast-address
+      - r-scylla2
+      - --broadcast-rpc-address
+      - r-scylla2
+    volumes:
+      - research_data2:/var/lib/scylla
+    networks:
+      scylla-research-net:
+        ipv4_address: 172.29.0.12
+
+  r-scylla3:
+    image: scylla-research:2026.3.0
+    container_name: r-scylla3
+    hostname: r-scylla3
+    depends_on:
+      - r-scylla1
+    command:
+      - --smp
+      - "2"
+      - --memory
+      - 2G
+      - --overprovisioned
+      - "1"
+      - --developer-mode
+      - "1"
+      - --cluster-name
+      - scylla-research
+      - --seeds
+      - r-scylla1
+      - --reactor-backend
+      - epoll
+      - --listen-address
+      - r-scylla3
+      - --rpc-address
+      - 0.0.0.0
+      - --broadcast-address
+      - r-scylla3
+      - --broadcast-rpc-address
+      - r-scylla3
+    volumes:
+      - research_data3:/var/lib/scylla
+    networks:
+      scylla-research-net:
+        ipv4_address: 172.29.0.13
+
+  tablet-monitor:
+    build:
+      context: ../monitoring
+    container_name: tablet-monitor
+    volumes:
+      - ../data/raw:/data
+    networks:
+      - scylla-research-net
+
+networks:
+  scylla-research-net:
+    external: true
+    name: scylla-research-net
+
+volumes:
+  research_data1:
+  research_data2:
+  research_data3:
