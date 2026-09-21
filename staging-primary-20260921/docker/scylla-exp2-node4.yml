@@ -1,0 +1,40 @@
+# Compose overlay for the four-node topology experiments.
+# Use with scylla-research-nodes.yml and a fresh project name.
+services:
+  r-scylla4:
+    image: scylla-research:2026.3.0
+    container_name: r-scylla4
+    hostname: r-scylla4
+    depends_on:
+      - r-scylla1
+    command:
+      - --smp
+      - "2"
+      - --memory
+      - 2G
+      - --overprovisioned
+      - "1"
+      - --developer-mode
+      - "1"
+      - --cluster-name
+      - scylla-research
+      - --seeds
+      - r-scylla1
+      - --reactor-backend
+      - epoll
+      - --listen-address
+      - r-scylla4
+      - --rpc-address
+      - 0.0.0.0
+      - --broadcast-address
+      - r-scylla4
+      - --broadcast-rpc-address
+      - r-scylla4
+    volumes:
+      - research_data4:/var/lib/scylla
+    networks:
+      scylla-research-net:
+        ipv4_address: 172.29.0.14
+
+volumes:
+  research_data4:

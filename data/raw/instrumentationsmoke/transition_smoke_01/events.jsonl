@@ -1,0 +1,3 @@
+﻿{"event":"join_command_start","phase":"smoke_scaleout","host_utc":"2026-09-21T11:23:13.7645355+00:00","node4_container_started_utc":null}
+{"event":"join_command_end","phase":"smoke_scaleout","host_utc":"2026-09-21T11:23:19.6829082+00:00","node4_container_started_utc":null}
+{"event":"node4_started","phase":"smoke_scaleout","host_utc":"2026-09-21T11:23:21.1572017+00:00","node4_container_started_utc":"2026-09-21T11:23:18.168607155Z"}
