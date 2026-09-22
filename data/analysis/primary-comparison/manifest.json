@@ -1,0 +1,52 @@
+{
+  "script": "ScyllaDB-Primary-Analysis.py",
+  "script_version": "1.0.0",
+  "raw_root": "C:\\Users\\gogsa\\Desktop\\Scylla Research\\data\\raw",
+  "output_directory": "C:\\Users\\gogsa\\Desktop\\Scylla Research\\data\\analysis\\primary-comparison",
+  "generated_files": {
+    "analysis_checkpoint.md": {
+      "bytes": 1691,
+      "sha256": "f51a1ba92564bb6db48585ab7ca12fc968521430fb85e967537a9d201d5df541"
+    },
+    "events.csv": {
+      "bytes": 2885,
+      "sha256": "d44fd6f3dfda98a35b8b385321a6d9b24f9210423d11c82769606dc58a0bd084"
+    },
+    "phase_summary.csv": {
+      "bytes": 2732,
+      "sha256": "d0275a596546c2573d87e72c6ef27a1b257eb9f16eeca8670999fa8a398b52bb"
+    },
+    "quality_checks.csv": {
+      "bytes": 947,
+      "sha256": "a412728b4c2a64db2cad71481f01d771ae4c670673409352c317243b78677a32"
+    },
+    "resource_timeseries.csv": {
+      "bytes": 838279,
+      "sha256": "b34c56c5671f80f7c355e8d6fc76594be7dee719c8abec1f12357e6971a53c7f"
+    },
+    "streaming_timeseries.csv": {
+      "bytes": 3834121,
+      "sha256": "a351bbc69a9eba9bcfce110f1384e6a79b0584f3f23ff83d37de875a88d0eee5"
+    },
+    "tablet_placement_summary.csv": {
+      "bytes": 825633,
+      "sha256": "673d3d2f77c5149fdaa4e60cc28dca1f996b58e5e8127301fa158d8672611190"
+    },
+    "tablet_replica_size_by_node.csv": {
+      "bytes": 2221333,
+      "sha256": "c333f7ad26da35796f68bf688ccd9ea6ac780d8261e9fa8b74008a3cf805ca56"
+    },
+    "tablet_snapshot_index.csv": {
+      "bytes": 786540,
+      "sha256": "2fb22e5b98332a3febd5ee2b0b3bf197772cfde7032b4661a800f9eb04dfd92c"
+    },
+    "transition_request_5s_bins.csv": {
+      "bytes": 427450,
+      "sha256": "5380e50f6bd56ec7421543c03e38feb443cc058125fb9c5281920190999c1bcd"
+    },
+    "vnode_ring_by_node.csv": {
+      "bytes": 3381774,
+      "sha256": "e0fb23865f98658cdabd4d9cddc64f6f2bae4b16e0cad1f3bf5384dae8693645"
+    }
+  }
+}
