@@ -1,6 +1,0 @@
-﻿{"event":"join_command_start","phase":"smoke_scaleout","host_utc":"2026-09-21T15:35:47.4711957+00:00","node4_container_started_utc":null}
-{"event":"join_command_end","phase":"smoke_scaleout","host_utc":"2026-09-21T15:35:50.5257938+00:00","node4_container_started_utc":null}
-{"event":"node4_started","phase":"smoke_scaleout","host_utc":"2026-09-21T15:35:52.2505116+00:00","node4_container_started_utc":"2026-09-21T15:35:48.200781934Z"}
-{"event":"decommission_command_start","phase":"smoke_scalein","host_utc":"2026-09-21T15:42:00.5309724+00:00","node4_container_started_utc":null}
-{"event":"decommission_command_end","phase":"smoke_scalein","host_utc":"2026-09-21T15:42:15.4200867+00:00","node4_container_started_utc":null}
-{"event":"node4_absent","phase":"smoke_scalein","host_utc":"2026-09-21T15:43:59.7749411+00:00","node4_container_started_utc":null}

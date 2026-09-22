@@ -1,3 +1,0 @@
-﻿{"event":"decommission_command_start","phase":"smoke_scalein","host_utc":"2026-09-21T11:51:29.7719850+00:00","node4_container_started_utc":null}
-{"event":"decommission_command_end","phase":"smoke_scalein","host_utc":"2026-09-21T11:51:46.6597744+00:00","node4_container_started_utc":null}
-{"event":"node4_absent","phase":"smoke_scalein","host_utc":"2026-09-21T11:56:10.5508513+00:00","node4_container_started_utc":null}

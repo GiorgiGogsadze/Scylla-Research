@@ -1,4 +1,0 @@
-timestamp,table_id,tablet_rows,size_rows,placement_replicas,size_replicas,token_sets_equal,complete_size_groups
-2026-09-21T11:13:49.024677+00:00,d4a27e10-b5ab-11f1-9f6f-1e8eec8f4a9c,32,32,64,64,True,32
-2026-09-21T11:13:50.073347+00:00,d4a27e10-b5ab-11f1-9f6f-1e8eec8f4a9c,32,32,64,64,True,32
-2026-09-21T11:13:51.132638+00:00,d4a27e10-b5ab-11f1-9f6f-1e8eec8f4a9c,32,32,64,64,True,32
