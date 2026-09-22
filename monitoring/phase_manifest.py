@@ -44,7 +44,7 @@ def main():
         "topology_plan": expected_topology[args.phase],
         "rows": 750000, "id_range": [0, 749999], "dataset_seed": 42,
         "value_bytes": 1024, "replication_factor": 2,
-        "rate_per_second": 50, "read_percent": 80,
+        "rate_per_second": 500, "read_percent": 80,
         "read_consistency": "LOCAL_QUORUM",
         "write_consistency": "LOCAL_QUORUM",
         "warmup_seconds": 30, "warmup_read_percent": 100,
