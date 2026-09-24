@@ -1,0 +1,36 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=24mm]{geometry}
+\usepackage{float,graphicx,booktabs,longtable,array,calc,etoolbox}
+\usepackage{tikz}
+\usepackage{amsmath,amssymb}
+\usepackage{caption}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bookmark}
+\setlength{\emergencystretch}{3em}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\setlength{\tabcolsep}{4pt}
+\AtBeginEnvironment{longtable}{\small}
+\captionsetup{font=small,labelfont=bf}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\let\originalappendix\appendix
+\renewcommand{\appendix}{\originalappendix\numberwithin{table}{section}}
+\newcommand{\pandocbounded}[1]{#1}
+\title{Tablets and Vnodes During Cluster Expansion and Contraction in ScyllaDB\\[5pt]\large An instrumented single-host comparative case study}
+\author{Giorgi Gogsadze\\\small Department of Computer Science, Kutaisi International University, Georgia}
+\date{24 September 2026}
+\begin{document}
+\maketitle
+\begin{abstract}
+Cluster expansion and contraction couple replica placement, storage maintenance and foreground service. We examine these interactions through one tablet lifecycle and one vnode lifecycle in ScyllaDB on a resource-constrained laptop. Each RF=2 dataset contained 750,000 deterministic rows and traversed a three-to-four-to-three-node sequence. The treatments executed identical sequences of 1.08 million measured operations at a target of 500 operations/s, with zero reported workload failures. Tablets split from 32 to 64 ranges and merged back, achieving equal four-node token-space shares while changing some final replica assignments. Client backlog was largest during tablet expansion and several minutes after vnode contraction; the latter coincided with synchronized deferred storage work. Topology quiescence preceded this delayed slowdown, illustrating the need to evaluate placement and service separately. An offline SSTable audit accounted for all 72,501 excess final vnode entries as overlap across local files: exactly 750,000 distinct keys remained, each on two nodes. Together, these findings connect placement transitions, maintenance and physical accounting. Unequal baselines, asymmetric log retention and one lifecycle per treatment constrain causal and statistical generalization.
+\end{abstract}
+\textbf{Keywords:} ScyllaDB; tablets; virtual nodes; topology changes; streaming; compaction; measurement validity
+\input{body.tex}
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+\end{document}

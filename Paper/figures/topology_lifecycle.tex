@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=stealth,box/.style={draw=blue!55!black,rounded corners,fill=blue!4,text width=3.65cm,minimum height=1.55cm,align=center,font=\small},vbox/.style={box,draw=red!60!black,fill=red!3}]
+\node[box] (a) at (0,0) {\textbf{Tablets: three nodes}\\32 ranges; 64 replicas\\N1/N2/N3: 21/22/21};
+\node[box] (b) at (5.1,0) {\textbf{Four nodes}\\64 ranges; 128 replicas\\32 replicas per node};
+\node[box] (c) at (10.2,0) {\textbf{Three nodes}\\32 ranges; 64 replicas\\21/22/21; 11 host sets changed};
+\draw[->,thick] (a)--node[above,yshift=10mm,font=\scriptsize,align=center]{Join\\split + migrate}(b);
+\draw[->,thick] (b)--node[above,yshift=10mm,font=\scriptsize,align=center]{Drain\\align + merge}(c);
+\node[vbox] (d) at (0,-2.8) {\textbf{Vnodes: three nodes}\\768 tokens\\256 per node};
+\node[vbox] (e) at (5.1,-2.8) {\textbf{Four nodes}\\1,024 tokens\\256 per node};
+\node[vbox] (f) at (10.2,-2.8) {\textbf{Three nodes}\\768 tokens\\Initial token owners restored};
+\draw[->,thick] (d)--node[above,yshift=10mm,font=\scriptsize]{Bootstrap}(e);
+\draw[->,thick] (e)--node[above,yshift=10mm,font=\scriptsize]{Decommission}(f);
+\end{tikzpicture}

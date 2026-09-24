@@ -2,3 +2,13 @@ test-experiment
 monitoring-backup-20260921
 staging-primary-20260921
 data/raw
+Not_Public
+
+# Paper
+Paper/*
+!Paper/
+!Paper/paper.tex
+!Paper/body.tex
+!Paper/figures
+!Paper/references.bib
+!Paper/paper.pdf
