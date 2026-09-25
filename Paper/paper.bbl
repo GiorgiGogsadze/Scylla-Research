@@ -1,0 +1,294 @@
+\begin{thebibliography}{35}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[{ScyllaDB}(2026{\natexlab{a}})]{r1}
+{ScyllaDB}.
+\newblock {Data Distribution with Tablets}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/architecture/tablets.html},
+  2026{\natexlab{a}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{b}})]{r6}
+{ScyllaDB}.
+\newblock {Nodetool ring}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/operating-scylla/nodetool-commands/ring.html},
+  2026{\natexlab{b}}.
+\newblock Accessed September 2026.
+
+\bibitem[DeCandia et~al.(2007)]{r24}
+Giuseppe DeCandia et~al.
+\newblock {Dynamo: Amazon’s Highly Available Key-value Store}.
+\newblock In \emph{Proceedings of SOSP}, 2007.
+\newblock URL
+  \url{https://www.amazon.science/publications/dynamo-amazons-highly-available-key-value-store}.
+
+\bibitem[{Apache Cassandra}(2026)]{r29}
+{Apache Cassandra}.
+\newblock {Dynamo: Architecture and Virtual Nodes}.
+\newblock
+  \url{https://cassandra.apache.org/doc/latest/cassandra/architecture/dynamo.html},
+  2026.
+\newblock Accessed September 2026.
+
+\bibitem[Chang et~al.(2006)]{r25}
+Fay Chang et~al.
+\newblock {Bigtable: A Distributed Storage System for Structured Data}.
+\newblock In \emph{Proceedings of OSDI}, 2006.
+\newblock URL
+  \url{https://www.usenix.org/legacy/event/osdi06/tech/chang/chang.pdf}.
+
+\bibitem[Kivity(2024)]{r27}
+Avi Kivity.
+\newblock {How We Implemented ScyllaDB’s “Tablets}.
+\newblock \url{https://www.scylladb.com/2024/06/17/how-tablets/}, 2024.
+\newblock Accessed September 2026.
+
+\bibitem[Osipov(2024)]{r28}
+Konstantin Osipov.
+\newblock {ScyllaDB’s Safe Topology and Schema Changes on Raft}.
+\newblock
+  \url{https://www.scylladb.com/2024/06/18/scylladbs-safe-topology-and-schema-changes-on-raft/},
+  2024.
+\newblock Accessed September 2026.
+
+\bibitem[Kuhlenkamp et~al.(2014)Kuhlenkamp, Klems, and Röss]{r30}
+Jörn Kuhlenkamp, Markus Klems, and Oliver Röss.
+\newblock {Benchmarking Scalability and Elasticity of Distributed Database
+  Systems}.
+\newblock \emph{Proceedings of the VLDB Endowment}, 7\penalty0 (13):\penalty0
+  1219--1230, 2014.
+\newblock URL \url{https://www.vldb.org/pvldb/vol7/p1219-klems.pdf}.
+
+\bibitem[Yamaguchi and Morimitsu(2017)]{r31}
+Saneyasu Yamaguchi and Yuki Morimitsu.
+\newblock {Improving Dynamic Scaling Performance of Cassandra}.
+\newblock \emph{IEICE Transactions on Information and Systems}, E100.D\penalty0
+  (4):\penalty0 682--692, 2017.
+\newblock URL \url{https://doi.org/10.1587/transinf.2016DAP0009}.
+
+\bibitem[Liu et~al.(2017)Liu, Gureya, Al-Shishtawy, and Vlassov]{r32}
+Ying Liu, Daharewa Gureya, Ahmad Al-Shishtawy, and Vladimir Vlassov.
+\newblock {OnlineElastMan: self-trained proactive elasticity manager for
+  cloud-based storage services}.
+\newblock \emph{Cluster Computing}, 20:\penalty0 1977--1994, 2017.
+\newblock URL \url{https://doi.org/10.1007/s10586-017-0899-z}.
+
+\bibitem[Cooper et~al.(2010)Cooper, Silberstein, Tam, Ramakrishnan, and
+  Sears]{r26}
+Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
+  Sears.
+\newblock {Benchmarking Cloud Serving Systems with YCSB}.
+\newblock In \emph{Proceedings of SoCC}, 2010.
+\newblock URL
+  \url{https://www.cs.albany.edu/~jhh/courses/readings/cooper.socc10.benchmarking.pdf}.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{c}})]{r21}
+{ScyllaDB}.
+\newblock {tools/scylla-nodetool.cc (estimated\_partition\_count) and
+  api/column\_family.cc (get\_estimated\_row\_count), commit 10c95df28f74. ;}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/tools/scylla-nodetool.cc};
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/api/column_family.cc},
+  2026{\natexlab{c}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{d}})]{r5}
+{ScyllaDB}.
+\newblock {Nodetool flush}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/operating-scylla/nodetool-commands/flush.html},
+  2026{\natexlab{d}}.
+\newblock Accessed September 2026.
+
+\bibitem[{Intel}(2026)]{r34}
+{Intel}.
+\newblock {Intel Core i5-13450HX Processor Specifications}.
+\newblock
+  \url{https://www.intel.com/content/www/us/en/products/sku/232132/intel-core-i513450hx-processor-20m-cache-up-to-4-60-ghz/specifications.html},
+  2026.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{e}})]{r33}
+{ScyllaDB}.
+\newblock {Release build index: 2026.3.0, x86-64, build
+  b14b47fb9cb96594eea92615544ef9e54695658a}.
+\newblock \url{https://backtrace.scylladb.com/releases.html},
+  2026{\natexlab{e}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{f}})]{r2}
+{ScyllaDB}.
+\newblock {Consistency Levels}.
+\newblock \url{https://docs.scylladb.com/manual/stable/cql/consistency.html},
+  2026{\natexlab{f}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{g}})]{r3}
+{ScyllaDB}.
+\newblock {Data Definition}.
+\newblock \url{https://docs.scylladb.com/manual/stable/cql/ddl.html},
+  2026{\natexlab{g}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{h}})]{r10}
+{ScyllaDB}.
+\newblock {Glossary: RF-rack-valid keyspace}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/reference/glossary.html#term-RF-rack-valid-keyspace},
+  2026{\natexlab{h}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{i}})]{r7}
+{ScyllaDB}.
+\newblock {System Requirements}.
+\newblock
+  \url{https://docs.scylladb.com/manual/branch-2026.3/getting-started/system-requirements.html},
+  2026{\natexlab{i}}.
+\newblock Accessed September 2026.
+
+\bibitem[{Docker Inc.}(2026{\natexlab{a}})]{r12}
+{Docker Inc.}
+\newblock {docker container stats}.
+\newblock \url{https://docs.docker.com/reference/cli/docker/container/stats/},
+  2026{\natexlab{a}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{j}})]{r11}
+{ScyllaDB}.
+\newblock {Metrics: scylla\_streaming\_total\_incoming\_bytes and
+  scylla\_streaming\_total\_outgoing\_bytes}.
+\newblock \url{https://docs.scylladb.com/manual/stable/reference/metrics.html},
+  2026{\natexlab{j}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{k}})]{r4}
+{ScyllaDB}.
+\newblock {Nodetool tablestats}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/operating-scylla/nodetool-commands/tablestats.html},
+  2026{\natexlab{k}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{l}})]{r23}
+{ScyllaDB}.
+\newblock {ScyllaDB SSTable, branch 2026.3, offline dump-statistics and
+  dump-data operations}.
+\newblock
+  \url{https://docs.scylladb.com/manual/branch-2026.3/operating-scylla/admin-tools/scylla-sstable.html},
+  2026{\natexlab{l}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{m}})]{r22}
+{ScyllaDB}.
+\newblock {service/tablet\_allocator.cc (eligible shards, per-shard minimum,
+  sizing candidates and power-of-two decisions), db/config.cc (defaults),
+  db/tablet\_options.hh (default power-of-two setting), and
+  service/tablet\_allocator\_fwd.hh (5-GiB target), commit 10c95df28f74. ; ;
+  ;}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/service/tablet_allocator.cc};
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/db/config.cc};
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/db/tablet_options.hh};
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/service/tablet_allocator_fwd.hh},
+  2026{\natexlab{m}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{n}})]{r16}
+{ScyllaDB}.
+\newblock {streaming/stream\_session.cc, commit 10c95df28f74,
+  offstrategy\_trigger and mutation-fragment receiver}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_session.cc},
+  2026{\natexlab{n}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{o}})]{r17}
+{ScyllaDB}.
+\newblock {streaming/stream\_manager.cc, commit 10c95df28f74, metric
+  registration and update\_progress}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_manager.cc},
+  2026{\natexlab{o}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{p}})]{r18}
+{ScyllaDB}.
+\newblock {streaming/stream\_transfer\_task.cc, commit 10c95df28f74,
+  mutation-stream progress callback}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_transfer_task.cc},
+  2026{\natexlab{p}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{q}})]{r19}
+{ScyllaDB}.
+\newblock {streaming/stream\_blob.cc, commit 10c95df28f74,
+  tablet\_stream\_files, stream-blob receiver and returned file-byte
+  accounting}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_blob.cc},
+  2026{\natexlab{q}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{r}})]{r20}
+{ScyllaDB}.
+\newblock {service/storage\_service.cc and db/config.cc, commit 10c95df28f74,
+  tablet file-stream selection and configuration default. ;}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/service/storage_service.cc};
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/db/config.cc},
+  2026{\natexlab{r}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{s}})]{r15}
+{ScyllaDB}.
+\newblock {replica/table.cc, commit 10c95df28f74, timer methods and constructor
+  callback}.
+\newblock
+  \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/replica/table.cc},
+  2026{\natexlab{s}}.
+\newblock Source inspection at commit 10c95df28f74; accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{t}})]{r13}
+{ScyllaDB}.
+\newblock {Adding a New Node Into an Existing ScyllaDB Cluster (Out Scale)}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/operating-scylla/procedures/cluster-management/add-node-to-cluster.html},
+  2026{\natexlab{t}}.
+\newblock Accessed September 2026.
+
+\bibitem[{ScyllaDB}(2026{\natexlab{u}})]{r14}
+{ScyllaDB}.
+\newblock {Nodetool cluster cleanup}.
+\newblock
+  \url{https://docs.scylladb.com/manual/stable/operating-scylla/nodetool-commands/cluster/cleanup.html},
+  2026{\natexlab{u}}.
+\newblock Accessed September 2026.
+
+\bibitem[Gogsadze(2026)]{r35}
+Giorgi Gogsadze.
+\newblock {Scylla Research}.
+\newblock GitHub repository, 2026.
+\newblock URL \url{https://github.com/GiorgiGogsadze/Scylla-Research}.
+
+\bibitem[{Docker Inc.}(2026{\natexlab{b}})]{r8}
+{Docker Inc.}
+\newblock {Define and manage volumes in Docker Compose}.
+\newblock \url{https://docs.docker.com/reference/compose-file/volumes/},
+  2026{\natexlab{b}}.
+\newblock Accessed September 2026.
+
+\bibitem[{Docker Inc.}(2026{\natexlab{c}})]{r9}
+{Docker Inc.}
+\newblock {docker compose down}.
+\newblock \url{https://docs.docker.com/reference/cli/docker/compose/down/},
+  2026{\natexlab{c}}.
+\newblock Accessed September 2026.
+
+\end{thebibliography}

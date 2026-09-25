@@ -12,3 +12,6 @@ Paper/*
 !Paper/figures
 !Paper/references.bib
 !Paper/paper.pdf
+!Paper/paper.bbl
+
+*.zip
