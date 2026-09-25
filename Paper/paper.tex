@@ -30,6 +30,11 @@
 A database can finish changing placement while its clients are still recovering. This study traces that separation through one tablet lifecycle and one vnode lifecycle in ScyllaDB on a resource-constrained laptop. Each RF=2 dataset contains 750,000 deterministic rows and follows a three-to-four-to-three-node sequence. Both treatments execute identical sequences of 1.08 million measured operations at a target of 500 operations/s, with zero reported workload failures. Tablets split from 32 to 64 ranges and merge back. They achieve equal four-node token-space shares while changing some final replica assignments. Client backlog peaks during tablet expansion and several minutes after vnode contraction. The delayed vnode episode coincides with synchronized storage maintenance after topology quiescence. An offline SSTable audit resolves a second apparent anomaly: all 72,501 excess final vnode entries arise from overlap across local files. The selected files contain exactly 750,000 distinct keys, each on two nodes. These findings connect placement, maintenance, client recovery and physical accounting. Unequal baselines, asymmetric log retention and one lifecycle per treatment constrain causal and statistical generalization.
 \end{abstract}
 \textbf{Keywords:} ScyllaDB; tablets; virtual nodes; topology changes; streaming; compaction; measurement validity
+
+\section*{Declaration of AI Assistance}
+
+I conducted the experiments, operated the research environment, developed the scripts, collected the data, and interpreted the results. I used OpenAI's GPT-6 Astra model to assist with experimental planning, script debugging, and manuscript editing. I have thoroughly reviewed all AI-assisted material against the experimental evidence and take full responsibility for the final analysis, conclusions, and manuscript content.
+
 \newpage
 \input{body.tex}
 \newpage
