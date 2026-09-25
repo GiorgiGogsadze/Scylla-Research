@@ -1,87 +1,31 @@
 \hypertarget{introduction}{%
 \section{Introduction}\label{introduction}}
 
-Adding or removing a database node is not a single event. Membership
-changes, replicas move, obsolete files are reclaimed, and clients
-continue to issue operations while the storage engine reorganizes data.
-A cluster can therefore appear stable in its topology metadata while
-foreground performance or local disk activity remains unsettled.
-Comparisons that report only operation latency or the return time of a
-topology command can miss those distinctions.
+Adding a database node starts a sequence of changes. The cluster updates membership, moves replicas and reclaims obsolete files. Meanwhile, clients keep sending requests as the storage engine reorganizes data. Removing a node creates a similar coordination problem. Topology metadata can look settled while clients and disks remain busy. Operation latency or command-return time alone can miss that unfinished work.
 
-ScyllaDB offers two data-distribution mechanisms within the same
-database: vnode-based token ownership and table-specific tablets with
-explicit replica placement \cite{r1,r6}. This makes it possible to
-compare mechanisms while retaining the database implementation, schema,
-replication factor and workload. However, their monitoring surfaces are
-not interchangeable. A tablet replica-size observation, a vnode
-ownership percentage, a stream-manager byte counter and an SSTable
-partition estimate describe different quantities.
+ScyllaDB offers two ways to distribute data: vnode-based token ownership and table-specific tablets with explicit replica placement \cite{r1,r6}. This allows a comparison within the same database implementation, schema, replication factor and workload. Reading the measurements requires care, however. Tablet replica sizes, vnode ownership percentages, stream-manager byte counters and SSTable partition estimates each describe a different part of the system.
 
-This paper addresses three questions. First, how do placement and
-observed quiescence evolve through a complete expansion/contraction
-lifecycle? Second, how do client scheduling, operation latency and
-storage maintenance relate to those transitions? Third, which apparent
-differences survive an audit of metric meaning, sampling and physical
-storage contents?
+This paper follows a complete expansion/contraction lifecycle to answer three questions. How do placement and observed quiescence evolve? How do client scheduling, operation latency and storage maintenance relate to those changes? Which apparent differences remain after checking metric definitions, sampling and physical storage contents?
 
-The contribution is an event-aligned case study combining request logs,
-continuous topology and resource observations, retained vnode server
-logs, exact-build source inspection and an offline audit of preserved
-SSTables. It reconstructs tablet placement inheritance, separates
-topology quiescence from delayed service effects, and accounts exactly
-for an apparent excess of physical replicas. These complementary
-outcomes provide a baseline for studying scaling mechanisms under
-constrained resources.
+The investigation aligns request logs with topology changes and resource activity. Retained vnode server logs, source code from the exact build and an offline audit of preserved SSTables help explain the resulting patterns. Together, these records reconstruct tablet placement inheritance, connect delayed work to client disruption and resolve an apparent excess of physical replicas. The result is a baseline comparison of scaling mechanisms under constrained resources.
 
 \hypertarget{background-and-related-work}{%
 \section{Background and related
 work}\label{background-and-related-work}}
 
-Dynamo's consistent-hashing design assigns multiple virtual positions to
-physical nodes to support incremental redistribution \cite{r24}. Apache
-Cassandra's architecture documentation describes the balance and
-operational tradeoffs of multiple tokens, including the larger set of
-replica neighbors \cite{r29}. Equal token counts therefore need to be
-distinguished from effective replicated ownership. Bigtable develops
-tablets as independently managed row ranges \cite{r25}; ScyllaDB applies
-table-specific partitioning to a replicated token space, with explicit
-host and shard placement \cite{r1}.
+Distributing data starts with a placement rule. Dynamo assigns multiple virtual positions to each physical node so the system can redistribute data incrementally \cite{r24}. Apache Cassandra documents the balance and operational tradeoffs of multiple tokens, including a larger set of replica neighbors \cite{r29}. Equal token counts therefore need not give nodes equal replicated ownership. Bigtable takes a range-based approach, managing tablets independently \cite{r25}. ScyllaDB partitions each table's replicated token space and assigns its tablets explicitly to hosts and shards \cite{r1}.
 
-ScyllaDB's implementation account describes tablets as units of
-placement and storage organization, including per-tablet memtables and
-SSTables, migration and cleanup \cite{r27}. Its Raft-topology account
-explains the coordination of metadata changes through a fault-tolerant
-topology coordinator \cite{r28}. These sources motivate inspecting both
-range boundaries and replica assignments. They also clarify the
-comparison: both treatments here run the same ScyllaDB build, so the
-contrast concerns data distribution within ScyllaDB. Cassandra studies
-provide context rather than an interchangeable implementation baseline.
+ScyllaDB's implementation account describes tablets as units of placement and storage organization \cite{r27}. Each tablet has associated memtables and SSTables, and migration includes cleanup. Its Raft-topology account explains how a fault-tolerant topology coordinator coordinates metadata changes \cite{r28}. These mechanisms motivate tracking both range boundaries and replica assignments. Both treatments in this study use the same ScyllaDB build. Cassandra studies supply context for the comparison, while the experiment examines data distribution within ScyllaDB itself.
 
-Elasticity research evaluates the cost of changing capacity while
-serving requests. Kuhlenkamp, Klems and Röss compare Cassandra and HBase
-using both scaling speed and workload impact, and examine the
-sensitivity of results to infrastructure and reproduction \cite{r30}.
-Yamaguchi and Morimitsu identify disk I/O during Cassandra node joining
-as a scaling bottleneck and investigate page-cache and I/O-scheduling
-changes \cite{r31}. Their findings motivate examining storage work
-alongside topology, without identifying the cause of an individual
-slowdown in our environment. OnlineElastMan uses workload prediction and
-a learned performance model to provision Cassandra storage under
-changing load and response-time objectives \cite{r32}. Its proactive
-control problem complements our fixed, externally triggered lifecycle,
-which concentrates on explaining immediate and delayed effects.
+Elasticity research asks what changing capacity costs while a database serves requests. Kuhlenkamp, Klems and Röss compare Cassandra and HBase using scaling speed and workload impact \cite{r30}. They also examine how infrastructure and reproduction affect results. Yamaguchi and Morimitsu identify disk I/O during Cassandra node joining as a bottleneck and investigate page-cache and I/O-scheduling changes \cite{r31}. Their findings motivate examining storage activity alongside topology. They do not establish the cause of a slowdown in this experiment.
 
-YCSB supplies a configurable framework for cloud-serving evaluation
-\cite{r26}. Our custom serial client instead preserves identical
-operation/key sequences and records scheduled and actual starts, making
-accumulated backlog directly auditable. Offline storage inspection adds
-another perspective: ScyllaDB's partition-estimate path aggregates
-SSTable estimates \cite{r21}, while repeated keys across files can
-inflate the total relative to distinct replicas. Flushing persists
-memtables while leaving other aspects of memory state intact \cite{r5}.
-Accordingly, we analyze logical ownership, physical file overlap,
-maintenance and client service as separate outcomes.
+OnlineElastMan uses workload prediction and a learned performance model to provision Cassandra storage under changing load and response-time objectives \cite{r32}. It studies proactive capacity control. Our fixed, externally triggered lifecycle complements that work by tracing the immediate and delayed effects of each change.
+
+YCSB provides a configurable framework for cloud-serving evaluation \cite{r26}. Our custom serial client preserves identical operation/key sequences and records both scheduled and actual starts. This makes accumulated backlog directly auditable.
+
+Storage files offer a second way to check the measurements. ScyllaDB aggregates SSTable estimates when reporting partition counts \cite{r21}. A key can appear in multiple local files, so the sum can exceed the number of distinct replicas. Flushing writes memtables to disk while leaving other aspects of memory state intact \cite{r5}. We therefore track logical ownership, physical file overlap, maintenance and client service separately.
+
+\newpage
 
 \hypertarget{experimental-design}{%
 \section{Experimental design}\label{experimental-design}}
@@ -100,13 +44,17 @@ Component
 Configuration
 \end{minipage} \\
 \midrule\noalign{}
+\endfirsthead
+\toprule
+Component & Configuration \\
+\midrule
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
 Host & Windows laptop, 16 GB RAM; Docker-managed Linux VM \\
 Processor & Intel Core i5-13450HX, x86-64; 1 socket, 10 cores (6
 performance + 4 efficient), 16 logical processors \\
-Nominal clocks & Author-reported base 2.40 GHz; manufacturer maximum
+Nominal clocks & Base speed shown by Windows: 2.40 GHz; manufacturer maximum
 turbo 4.60 GHz \cite{r34} \\
 Storage & NVMe SSD, SOLIDIGM SSDPFINW010TZL \\
 VM allocation evidence & Approximately 9.711 GiB displayed as the common
@@ -129,55 +77,29 @@ reads \\
 Consistency & LOCAL\_QUORUM for reads and writes \\
 \end{longtable}
 
-Hardware identity and base speed were supplied retrospectively by the
-author; virtualization was enabled. The maximum turbo specification is a
-hardware capability, not a measured experiment clock \cite{r34}. The
-recorded Docker memory ceiling is rounded and does not establish an
-exact VM configuration. Two Scylla shards and \texttt{-\/-memory\ 2G}
-describe database process settings, not the VM's vCPU count or a
-container hard-memory quota. Effective CPU frequency, storage throughput
-and VM vCPU allocation were not recorded in the available primary
-evidence.
+I checked the processor and SSD model after the experiments. Windows reported a base speed of 2.40 GHz, with virtualization enabled. I did not record effective CPU frequency, storage throughput or the VM's configured vCPU and memory limits during the runs. The maximum turbo frequency comes from the manufacturer specification \cite{r34}. Docker displayed a common, rounded memory ceiling of 9.711 GiB. Two Scylla shards and \texttt{--memory 2G} describe database process settings. They do not establish the VM's vCPU count or a container hard-memory quota.
 
-The exact version and build ID match ScyllaDB's published x86-64
-\textbf{release} entry \cite{r33}. The date/commit suffix identifies its
-build; it does not identify a pre-release. Runtime developer mode is a
-separate setting. The schema and LOCAL\_QUORUM settings follow
-ScyllaDB's documented interfaces \cite{r2,r3}.
+The exact version and build ID match ScyllaDB's published x86-64 \textbf{release} entry \cite{r33}. The date/commit suffix identifies that release build; it does not mark a pre-release. Developer mode is a separate runtime setting. The schema and LOCAL\_QUORUM settings follow ScyllaDB's documented interfaces \cite{r2,r3}.
 
-The treatments used fresh project-scoped volumes and distinct keyspaces.
-Tablets ran first on 21 September 2026 and vnodes second on 22
-September. Fixed container names and network addresses required
-sequential execution. The dataset remained loaded through each
-lifecycle, but workload phases were separated by checks, warmups and
-operator delays. Thus the experiment maintained dataset continuity, not
-uninterrupted mixed traffic across the entire day.
+Each treatment started with fresh project-scoped volumes and a distinct keyspace. Tablets ran first on 21 September 2026; vnodes followed on 22 September. Fixed container names and network addresses required sequential execution. The dataset stayed loaded throughout each lifecycle. Checks, warmups and operator delays separated the workload phases, so mixed traffic did not run continuously across the entire day.
 
-RF=2 preserves nontrivial replica-placement choices in a three-node
-baseline. The one-rack tablet configuration does not satisfy ScyllaDB's
-RF-rack-valid terminology \cite{r10}, and a separate creation warning
-reported RF below the recommended threshold of three. The configuration
-permits the placement and streaming observations studied here; the
-findings apply to this single-rack warning state. Rack-failure behavior
-was outside the experiment.
+RF=2 gives a three-node baseline meaningful placement choices. The single-rack tablet configuration falls outside ScyllaDB's RF-rack-valid terminology \cite{r10}. A separate keyspace-creation warning also reported RF below the recommended threshold of three. The system still permits the placement and streaming observations studied here. The findings apply to this single-rack warning state; the experiment did not test rack failures.
 
-The observed startup warnings also matter: the perf-event stall detector
-fell back to a timer, SCHED\_FIFO scheduling was unavailable, memory was
-approximately 974 MiB per shard, and the I/O scheduler was reported as
-improperly configured. These deviations from recommended deployment
-conditions affect the interpretation of performance \cite{r7}.
+Startup warnings establish further limits on the testbed. The perf-event stall detector fell back to a timer, and SCHED\_FIFO scheduling was unavailable. ScyllaDB reported approximately 974 MiB per shard and an improperly configured I/O scheduler. These departures from recommended deployment conditions matter when interpreting performance \cite{r7}.
+
+\newpage
 
 \hypertarget{lifecycle-and-workload-matching}{%
 \subsection{Lifecycle and workload
 matching}\label{lifecycle-and-workload-matching}}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1429}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1905}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1905}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1905}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1429}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.14}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.12}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.12}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.38}}@{}}
 \caption{Measured lifecycle phases; each phase is preceded by a read-only warmup.}\label{tab:lifecycle}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
@@ -206,26 +128,17 @@ scheduled +120 s \\
 Final three & 3 & 120 & 60,000 & 20260925 & None \\
 \end{longtable}
 
-Every phase had a 30-second, read-only warmup at the same target rate.
-Measured workloads selected IDs uniformly and generated deterministic
-updates. All 1,080,000 corresponding operation-type/ID pairs matched
-between treatments, and all eight recorded source hashes agreed.
-Successful writes were checked against saved latest expected seeds. The
-final tracked set contained 186,933 distinct written IDs in each
-treatment.
+After loading and verifying each fresh dataset, I flushed the target
+table on all three initial nodes before baseline measurement. I did not
+deliberately clear caches or restart the surviving nodes between phases.
+The later vnode cleanup described below also changed the memtable and
+SSTable state.
 
-There were two relevant departures from a perfectly matched schedule.
-The vnode expansion warmup was repeated after an initially slower run;
-both warmups were excluded from measured results. In addition, serial
-cleanup was run on the original vnode nodes after measured expansion and
-before the four-node phase. No equivalent manual cleanup was run for
-tablets. Cleanup changed the storage state inherited by subsequent
-phases.
+Every phase began with a 30-second, read-only warmup at the same target rate. The measured workloads selected IDs uniformly and generated deterministic updates. All 1,080,000 corresponding operation-type/ID pairs matched between treatments. All eight recorded source hashes also agreed. Write-state checks compared successful writes with the saved latest expected seeds. Each treatment ended with 186,933 distinct written IDs in its tracked set.
 
-The study comprises one independently initialized lifecycle per
-treatment. Requests are observations within each lifecycle, rather than
-independent treatment replications; the analysis reports descriptive
-statistics without treatment-level significance tests.
+Two procedural differences affected the histories. I repeated the vnode expansion warmup after an initially slower run and excluded both warmups from measured results. I also ran cleanup serially on the original vnode nodes after measured expansion and before the four-node phase. Tablets received no equivalent manual cleanup. The vnode cleanup changed the storage state that subsequent phases inherited.
+
+The study contains one independently initialized lifecycle per treatment. Individual requests provide observations within those lifecycles, not independent treatment replications. The analysis therefore reports descriptive statistics without treatment-level significance tests.
 
 \begin{figure}[H]
 \centering
@@ -233,66 +146,30 @@ statistics without treatment-level significance tests.
 \caption{Observed membership and range organization. Replica counts count host/shard assignments at RF=2; arrows summarize transitions that included migration. The return to 32 tablet boundaries preserved aggregate counts but changed 11 host sets. Vnode token-owner signatures returned to their initial state.}\label{fig:topology}
 \end{figure}
 
+\newpage
+
 \hypertarget{measurement-definitions}{%
 \subsection{Measurement definitions}\label{measurement-definitions}}
 
-\textbf{Client operation latency} is the monotonic elapsed time inside
-the workload's operation boundary. That boundary includes client-side
-value generation, the driver call, read validation or
-expected-write-state handling. It is not isolated server execution time.
+\textbf{Client operation latency} measures monotonic elapsed time inside the workload's operation boundary. That boundary includes client-side value generation and the driver call. It also includes read validation or expected-write-state handling. The metric therefore combines client work with the database interaction, rather than isolating server execution time.
 
-\textbf{Scheduled-start lag} is actual monotonic start offset minus
-scheduled offset. The client is serial: when operation time and
-intervening work exceed the two-millisecond average budget, it
-accumulates backlog and subsequently catches up. A target of 500/s
-therefore does not mean an independent concurrent arrival process
-delivered exactly 500 requests in every wall-clock second.
+\textbf{Scheduled-start lag} measures how far the client falls behind its schedule: actual monotonic start offset minus scheduled offset. The client executes operations serially. At 500/s, each operation and its intervening work have a two-millisecond average budget. When they exceed that budget, backlog accumulates; faster execution later allows the client to catch up. The target does not create independent concurrent arrivals or guarantee exactly 500 requests in every wall-clock second.
 
-\textbf{Placement-and-counter quiescence onset} is the earliest saved
-topology observation followed by at least 60 seconds of unchanged
-placement and idle collected streaming counters, with complete required
-groups. It is a retrospective metadata-and-counter milestone. It does
-not measure all transfer paths, deferred compaction or sustained client
-recovery. The full confirmation window becomes available only later;
-collection cadence limits temporal resolution.
+\textbf{Placement-and-counter quiescence onset} identifies a quiet window in the recorded topology and counters. It is the earliest saved topology observation followed by at least 60 seconds of unchanged placement and idle collected streaming counters, with complete required groups. We identify the onset retrospectively, once the full confirmation window is available. Collection cadence limits its temporal resolution. The criterion covers the recorded metadata and counters; it does not measure all transfer paths, deferred compaction or sustained client recovery.
 
-\textbf{Ownership} denotes logical token-space coverage.
-\textbf{Replica-size bytes} describe reported tablet replica storage.
-\textbf{SSTable entry counts} and \textbf{distinct local keys} are
-separate measures. Gross Docker network and block I/O include other
-traffic and storage work and are rounded cumulative values \cite{r12}.
-Throughout, MB denotes decimal megabytes; MiB and GiB denote binary
-units.
+\textbf{Ownership} measures logical token-space coverage. \textbf{Replica-size bytes} describe reported tablet replica storage. \textbf{SSTable entry counts} count entries in files, while \textbf{distinct local keys} distinguish keys after deduplication. Gross Docker network and block I/O are rounded cumulative values that include other traffic and storage work \cite{r12}. Throughout, MB denotes decimal megabytes; MiB and GiB denote binary units.
 
 \hypertarget{instrumentation-and-analysis}{%
 \subsection{Instrumentation and
 analysis}\label{instrumentation-and-analysis}}
 
-Tablet placement and size metadata were sampled approximately once per
-second. Vnode ring commands ran approximately every two seconds,
-retaining raw output, acquisition start/end times and SHA-256 hashes.
-The documented incoming/outgoing stream-manager counters \cite{r11} were
-collected per node, shard and direction at roughly one-second intervals.
-Docker samples were typically three to four seconds apart. Event records
-identified command starts, returns and process removal; separate health
-checks recorded membership, tasks, streams, restarts and OOM flags.
+The collectors tracked the cluster at several timescales. Tablet placement and size sampling ran approximately once per second. Vnode ring commands ran approximately every two seconds and saved raw output, acquisition start/end times and SHA-256 hashes. Another collector recorded the documented incoming/outgoing stream-manager counters per node, shard and direction at roughly one-second intervals \cite{r11}. Docker samples were typically three to four seconds apart. Event records marked command starts, returns and process removal. Separate health checks recorded membership, tasks, streams, restarts and OOM flags.
 
-Phase summaries use linear-interpolated quantiles at position
-\texttt{(n-1)p}, rounded to three decimals. UTC timestamps align
-independently recorded evidence; durations and scheduling conclusions
-use monotonic fields. Appendix A contains clock, sampling and parser
-validation details.
+Phase summaries use linear-interpolated quantiles at position \texttt{(n-1)p}, rounded to three decimals. UTC timestamps align independently recorded evidence. Monotonic fields support duration and scheduling conclusions. Appendix~\ref{measurement-and-evidence-audit} details the clock, sampling and parser checks.
 
-To investigate the final partition estimates reported by
-\texttt{tablestats} \cite{r4}, we mounted preserved vnode volumes
-read-only and used the matching \texttt{dump-statistics} and
-\texttt{dump-data} tools \cite{r23}. File inventory and modification
-times selected the 12 SSTables corresponding to the pre-shutdown
-checkpoint. We compared metadata row counts with extracted keys,
-deduplicated within each node and counted node membership for every key.
-This retrospective audit tests whether apparent excess replicas arise
-from local file overlap; its selected-file scope excludes later shutdown
-files and memtables.
+The investigation also checks what the files actually contain. A partition estimate can look excessive when several SSTables hold the same local key. To test that explanation for the final \texttt{tablestats} counts \cite{r4}, we mounted preserved vnode volumes read-only. We used the matching \texttt{dump-statistics} and \texttt{dump-data} tools \cite{r23}. The inventory and modification times identified 12 SSTables corresponding to the pre-shutdown checkpoint. We compared metadata row counts with extracted keys, deduplicated keys within each node and counted node membership for every key. This retrospective audit covers the selected files and excludes later shutdown files and memtables.
+
+\newpage
 
 \hypertarget{results}{%
 \section{Results}\label{results}}
@@ -301,33 +178,18 @@ files and memtables.
 \subsection{Integrity and foreground operation
 times}\label{integrity-and-foreground-operation-times}}
 
-Each treatment completed 1.08 million measured operations with zero
-reported failures, invalid IDs or index errors. The read/write counts
-matched exactly by phase: 48,170/11,830; 360,305/89,695; 48,012/11,988;
-360,268/89,732; and 48,084/11,916. Saved write-state checks found no
-missing or mismatched latest seeds. Both final logical counts were
-750,000; 500 written and 500 never-written sampled values per treatment
-matched at LOCAL\_QUORUM. The value verification covers the measured
-operations and sampled keys.
+Each treatment completed 1.08 million measured operations with zero reported failures, invalid IDs or index errors. Read/write counts matched exactly in phase order: 48,170/11,830; 360,305/89,695; 48,012/11,988; 360,268/89,732; and 48,084/11,916. Saved write-state checks found no missing or mismatched latest seeds. Both treatments ended with 750,000 logical rows. At LOCAL\_QUORUM, checks of 500 written and 500 never-written sampled values per treatment also passed. These checks cover the measured operations and sampled keys.
 
-The treatments differed before scaling: vnode baseline read p95 was
-2.240 ms versus 3.033 ms for tablets, approximately \textbf{26.1\%
-lower}. Baseline lag p95 also differed (0.006 versus 0.190 s). Identical
-request sequences therefore did not establish equivalent starting
-performance. Fixed run order, separate days, cache and maintenance
-histories, and shared-host activity constrain comparisons from the
-outset. Windows available memory later fell to 161 MiB during tablet
-expansion; the available evidence cannot isolate its effect. Phase
-differences below are descriptive observations of these histories.
+The comparison starts with an important difference: vnodes already had a lower baseline read p95. Their 2.240 ms compares with 3.033 ms for tablets, approximately \textbf{26.1\% lower}. Baseline lag p95 also differed: 0.006 versus 0.190 s. Matching request sequences therefore did not produce equivalent starting performance. The runs took place in a fixed order on separate days, with different cache and maintenance histories and shared-host activity. Windows available memory later fell to 161 MiB during tablet expansion, but the evidence cannot isolate its effect. The following phase comparisons describe these recorded histories.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1111}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1481}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1333}}@{}}
 \caption{Client operation latency by measured phase. All values are
 milliseconds; T denotes tablets and V denotes vnodes. Each row
 summarizes one run segment, not a replicated treatment estimate.
@@ -388,11 +250,9 @@ V / Final three & 1.826 & 3.153 & 4.005 & 1.355 & 2.323 & 2.896 \\
 \caption{Read and write p95 client operation latency. Millisecond-scale operation times can coexist with seconds of scheduled-start lag because the client issues operations serially.}\label{fig:figure_1_phase_latency_p95}
 \end{figure}
 
-Vnodes had lower read p95 values in the first three phases, while
-tablets had the lower value during contraction. Final-three read p95
-values were close. These differences characterize the recorded
-histories. They cannot isolate data distribution from cache,
-maintenance, treatment order or host activity.
+Vnodes had lower read p95 values in the first three phases. Tablets had the lower value during contraction, and the final-three read p95 values were close. These observations describe how the two runs behaved. Cache state, maintenance, treatment order and host activity remain intertwined with the choice of data distribution.
+
+\newpage
 
 \hypertarget{placement-quiescence-and-topology-timing}{%
 \subsection{Placement quiescence and topology
@@ -444,78 +304,33 @@ Vnode contraction & 9.932 & 11.323 & 0.159 \\
 \caption{Earliest sampled start of a subsequently verified 60-second unchanged-placement and idle-counter window. The observations are bounded by collection cadence and counter scope.}\label{fig:figure_2_convergence_onset}
 \end{figure}
 
-The criterion was reached earlier by vnodes in these observations, but
-it measures only placement and the collected counters. In particular,
-vnode contraction reached it at about 11 seconds, while the largest
-client backlog developed roughly five minutes later. Tablet
-file-transfer coverage is also incomplete (Section 4.4). These onsets
-should therefore be read as partial topology milestones alongside the
-service and storage results. The ring showed a joining fourth node
-before all 1,024 token rows became Up/Normal. Vnode logs independently
-recorded completion of 3,851 bootstrap ranges and streaming completion;
-the reported bootstrap duration was ten seconds. That internal duration
-begins later than external command initiation and should not replace the
-end-to-end observation.
+Vnodes reached the placement-and-counter milestone earlier in both transitions. The contraction result shows why that milestone needs context: vnodes reached it at about 11 seconds, yet their largest client backlog developed roughly five minutes later. The tablet counters also leave part of file transfer unobserved (Section~\ref{movement-observability-differs-by-path}). We therefore interpret these onsets alongside the service and storage results.
 
-For tablets, expansion changed 32 ranges into 64, producing 128 RF=2
-assignments. Contraction returned to 32 ranges and 64 assignments. The
-first post-merge count of 32 occurred 11.519 seconds after decommission
-initiation, but a further migration between surviving nodes delayed the
-placement milestone until 17.691 seconds. For vnodes, the first complete
-three-node ring sample began at +9.283 seconds, before the last observed
-counter increase at +10.008 seconds. The joint quiescence window
-therefore started at the later +11.323-second ring sample. Appendix B
-gives the observation intervals.
+The vnode ring first showed a joining fourth node, then all 1,024 token rows became Up/Normal. Server logs independently recorded completion of 3,851 bootstrap ranges and streaming completion. They reported a bootstrap duration of ten seconds. That internal interval starts after the external command, so it measures a shorter part of the join process.
 
-Decommissioning and stopping the departed process were separate events.
-Collectors continued to observe node 4 after ring departure until it was
-stopped. Appendix A records the process timing and partial
-post-decommission statistics.
+Tablet expansion changed 32 ranges into 64 and produced 128 RF=2 assignments. Contraction returned the table to 32 ranges and 64 assignments. The first post-merge count of 32 appeared 11.519 seconds after decommission initiation. A later migration between surviving nodes pushed the placement milestone to 17.691 seconds.
+
+For vnodes, the first complete three-node ring sample began at +9.283 seconds. Counters still increased at +10.008 seconds. The joint quiescence window therefore began with the later +11.323-second ring sample. Appendix~\ref{topology-reconstruction-and-temporal-precision} gives the observation intervals.
+
+Ring departure and process shutdown also occurred separately. Collectors could still observe node 4 after decommissioning because its process continued running. Appendix~\ref{measurement-and-evidence-audit} records when it stopped and the partial statistics returned after decommissioning.
 
 \hypertarget{tablet-splitting-merging-and-placement-inheritance}{%
 \subsection{Tablet splitting, merging and placement
 inheritance}\label{tablet-splitting-merging-and-placement-inheritance}}
 
-Figure~\ref{fig:topology} summarizes the observed
-lifecycle. The saved metadata separates a change in range boundaries
-from a change in replica placement. All 32 original ranges split into
-two children; each child pair had identical host/shard assignments.
-Twenty-eight pairs matched the parent's current assignment in the
-preceding snapshot, and four matched its pending assignment. Thus all 32
-pairs were explained once migration state was included. Treating only
-the old current assignment as authoritative would have created four
-false anomalies.
+To understand tablet resizing, we need to follow both boundaries and replicas (Figure~\ref{fig:topology}). All 32 original ranges split into two children. Every child pair had identical host/shard assignments. Twenty-eight pairs matched the parent's current assignment in the preceding snapshot; four matched its pending assignment. Including migration state explains all 32 pairs. Looking only at the preceding current assignment would have produced four false anomalies.
 
-During merging, all 32 final ranges combined two prior ranges.
-Thirty-one pairs already had identical current host/shard assignments.
-The apparent exception, ending at token -1, had a pending migration in
-\texttt{use\_new} that aligned the second child with the first. The next
-snapshot recorded the merged parent's aligned assignment. This resolves
-the observed placement discrepancy without claiming that sampling
-captured every internal step.
+The merge raised a similar question: did both children have compatible placements? All 32 final ranges combined two prior ranges. Thirty-one pairs already had identical current host/shard assignments. The apparent exception ended at token -1. Its pending migration had reached \texttt{use\_new}, aligning the second child with the first. The next snapshot showed the merged parent's aligned assignment. This explains the discrepancy visible in the samples, although sampling did not capture every internal step.
 
-One sampled intra-node migration moved a replica from shard 0 to shard 1
-on node 2, retaining the same two hosts. Its resulting placement matched
-the neighboring merge partner. This is consistent with merge
-preparation, although the internal scheduling decision was not logged.
-After the range count had fallen to 32, a separate migration moved one
-replica from node 1 to node 2 while retaining node 3. That
-surviving-node reassignment explains why range-count convergence
-preceded placement convergence.
+One observation shows alignment within a host. A replica moved from shard 0 to shard 1 on node 2, preserving the same two hosts. The new placement matched the neighboring merge partner. This is consistent with merge preparation, although the evidence lacks the internal scheduling decision.
 
-The exact-build allocator defaults predict the observed 32/64/32
-sequence from eligible shard counts \cite{r22}. Small observed replica
-sizes favor this explanation over a data-size trigger; missing
-historical runtime settings leave the attribution conditional (Appendix
-B).
+Resizing did not end all placement work. After the count fell to 32, another migration moved a replica from node 1 to node 2 while retaining node 3. That reassignment explains why the range count settled before replica placement did.
 
-Across the complete lifecycle, the original 32 boundary positions
-returned, but 11 ranges had different host sets and 12 had different
-host/shard assignments. The aggregate node counts returned to 21/22/21.
-Restoration of aggregate balance therefore did not mean restoration of
-the original placement. By contrast, the initial and final vnode
-token-owner signatures matched, with 768 tokens and 256 per surviving
-node.
+The allocator defaults in the exact build predict the 32/64/32 sequence from the eligible shard counts \cite{r22}. The small observed replica sizes favor this explanation over a data-size trigger. Historical runtime settings are missing, so the attribution remains conditional. Appendix~\ref{topology-reconstruction-and-temporal-precision} sets out the calculation and its limits.
+
+The final cluster recovered its original 32 boundary positions and aggregate node counts of 21/22/21. It did not recover every original assignment: 11 ranges had different host sets, and 12 had different host/shard assignments. Vnodes followed a different path. Their initial and final token-owner signatures matched, with 768 tokens and 256 per surviving node.
+
+\newpage
 
 \hypertarget{movement-observability-differs-by-path}{%
 \subsection{Movement observability differs by
@@ -541,32 +356,21 @@ Contraction: node 4 outgoing & 369,362 & 450,160,472 \\
 Contraction: surviving-node incoming sum & 369,362 & 450,160,472 \\
 \end{longtable}
 
-Sender and receiver deltas agreed for each transition, with no decreases
-in the audited series. Appendix A gives per-node contributions and
-initial observation delays.
+The counter accounting initially looks reassuring. Sender and receiver deltas agree in every transition, and none of the audited series decreases. Appendix~\ref{measurement-and-evidence-audit} reports each node's contribution and the delay before node 4 became observable.
 
-Node 4 received roughly 418 MB of gross Docker traffic early in tablet
-expansion and held approximately 399 MB of reported replica data. The
-much smaller stream counter therefore cannot describe the complete
-physical transfer. Exact-build source inspection shows that the
-collected counters are advanced through mutation-stream progress paths
-\cite{r16,r17,r18}, while tablet file streaming has separate stream-blob
-byte accounting \cite{r19,r20}. That implementation difference is
-consistent with the observed gap. Historical tablet logs and runtime
-path settings are absent, so the exact excluded byte total and table
-attribution cannot be reconstructed.
+A second measurement reveals the coverage problem. Early in tablet expansion, node 4 received roughly 418 MB of gross Docker traffic and held approximately 399 MB of reported replica data. The much smaller stream counter cannot account for the complete physical transfer.
+
+The exact-build source explains how this gap can arise. Mutation-stream progress paths advance the collected counters \cite{r16,r17,r18}. Tablet file streaming uses separate stream-blob byte accounting \cite{r19,r20}. This difference fits the observations. Without historical tablet logs and runtime path settings, however, we cannot reconstruct the exact excluded byte total or attribute it fully to the table.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth,height=.56\textheight,keepaspectratio]{figures/figure_3_movement_observability.png}
-\caption{Node-4 directional deltas within measured transition arms: incoming/RX during expansion and outgoing/TX during contraction. Stream counters are 0.369362 MB for tablets and 450.160472 MB for vnodes in each direction. Docker gross deltas are approximately 528.999/577.998 MB during expansion and 590/680 MB during contraction. Sampling endpoints and observation durations differ. These measures have different coverage.}\label{fig:figure_3_movement_observability}
+\caption{Node-4 directional deltas within measured transition arms: incoming/RX during expansion and outgoing/TX during contraction. Stream counters are 0.369362 MB for tablets and 450.160472 MB for vnodes in each direction. Docker gross deltas are approximately 529 MB for tablets and 578 MB for vnodes during expansion, and 590 MB for tablets and 680 MB for vnodes during contraction. Sampling endpoints and observation durations differ. These measures have different coverage.}\label{fig:figure_3_movement_observability}
 \end{figure}
 
-The early vnode receive total of roughly 467 MB is closer to its
-streaming counter, but also includes unrelated network traffic. Summing
-interface RX and TX would double-count transfers in some comparisons. A
-transfer-efficiency ratio would require instrumentation covering the
-same paths.
+The early vnode receive total, roughly 467 MB, is closer to its stream counter. It still includes unrelated network traffic. Summing interface RX and TX can also count the same transfer twice. Comparing transfer efficiency would require instrumentation that covers the same paths in both treatments.
+
+\newpage
 
 \hypertarget{client-scheduling-immediate-and-delayed-effects}{%
 \subsection{Client scheduling: immediate and delayed
@@ -599,63 +403,33 @@ V / Final three & 0.455 & 0.759 \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth,height=.56\textheight,keepaspectratio]{figures/figure_4_phase_scheduling_lag.png}
+\includegraphics[width=0.8\textwidth,height=0.45\textheight,keepaspectratio]{figures/figure_4_phase_scheduling_lag.png}
 \caption{Phase-wide p95 and maximum lag. Mean throughput close to the target obscures temporary backlog followed by catch-up.}\label{fig:figure_4_phase_scheduling_lag}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth,height=.56\textheight,keepaspectratio]{figures/figure_5_transition_lag_timeline.png}
+\includegraphics[width=0.8\textwidth,height=0.45\textheight,keepaspectratio]{figures/figure_5_transition_lag_timeline.png}
 \caption{Five-second scheduled-time bins around the topology trigger. The view is cropped to -120 through +450 scheduled seconds; smaller later excursions remain in the complete 900-second records. Delayed requests execute later than their scheduled bin.}\label{fig:figure_5_transition_lag_timeline}
 \end{figure}
 
-For tablet expansion, 15,000 requests scheduled in seconds 90-120 took
-29.80 monotonic seconds, including 27.01 seconds inside operations. The
-next 15,000 took 51.27 seconds, including 49.18 seconds inside
-operations and 2.08 seconds between them. Thus the service deficit
-accumulated primarily inside the client operation boundary. Maximum
-inter-operation gaps were 8.018 and 12.786 ms. The missing tablet server
-logs prevent assigning this deficit to a specific server-side mechanism.
-Appendix A gives the independent timing endpoints, including the
-coincidence between the rounded request-span and topology-onset values.
+The client trace helps locate where the tablet expansion backlog accumulated. The 15,000 requests scheduled in seconds 90-120 took 29.80 monotonic seconds, including 27.01 seconds inside operations. The next 15,000 took 51.27 seconds. Of that interval, operations consumed 49.18 seconds and the gaps between them consumed 2.08 seconds. Most of the deficit therefore accumulated inside the client operation boundary. Maximum inter-operation gaps were 8.018 and 12.786 ms. Missing tablet server logs prevent a specific server-side diagnosis. Appendix~\ref{measurement-and-evidence-audit} gives the independent timing endpoints and explains the coincidentally similar rounded request-span and topology-onset values.
 
-Vnode expansion also accumulated backlog, but less. Its largest
-five-second scheduled slice took approximately 10.97 seconds, of which
-10.69 seconds were timed operations. The maximum phase lag was 8.810
-seconds, compared with 23.070 for tablets. This quantifies the transient
-service deficit in this run.
+Vnode expansion also built up backlog, but the maximum was smaller. Its largest five-second scheduled slice took approximately 10.97 seconds to execute, including 10.69 seconds inside operations. Maximum phase lag reached 8.810 seconds, compared with 23.070 for tablets. These traces quantify the temporary service deficit in each run.
 
-Vnode contraction had two distinct effects. The immediate post-command
-interval reached about 3.910 seconds of lag, then recovered. The much
-larger 23.654-second maximum developed approximately five minutes later.
-Requests scheduled in seconds 425-435 executed from approximately
-15:31:49 to 15:32:20 UTC; successive groups of 2,500 consumed 9.31 and
-21.40 seconds inside operations. The slowdown began before node 4
-received SIGTERM at 15:32:34.697, ruling out that later stop as its
-initial cause.
+Vnode contraction produced two episodes of delay. Lag reached about 3.910 seconds immediately after the command, then recovered. The larger 23.654-second maximum developed approximately five minutes later.
 
-All six surviving-node shards began off-strategy compaction almost
-simultaneously, approximately 300 seconds after their last logged
-SSTable receipt. A five-minute trigger in the exact-build source
-provides an implementation-consistent explanation \cite{r15,r16};
-Appendix B details the timing and candidate counts.
+The delayed episode stretches a short scheduled interval across a much longer execution interval. Requests scheduled in seconds 425-435 ran from approximately 15:31:49 to 15:32:20 UTC. Successive groups of 2,500 spent 9.31 and 21.40 seconds inside operations. Node 4 received SIGTERM only at 15:32:34.697. Its later stop therefore cannot explain the initial slowdown.
 
-In a surrounding 35.5-second resource window, nodes 1-3 recorded
-approximately 2.46 GB of additional block reads and 2.37 GB of writes in
-total, while node 4's block counters were unchanged. All 16 streaming
-series were flat. This supports delayed local storage work rather than
-renewed measured streaming. The short compaction-manager messages ended
-near 15:31:54, whereas slow operations and later file modification times
-extended to approximately 15:32:20. The logs therefore do not account
-for every millisecond of slowdown. Compaction, shared-host I/O and
-foreground work are associated in time; a controlled causal
-decomposition is unavailable.
+Receiving data can leave storage maintenance for later. Off-strategy compaction processes SSTables outside the regular compaction strategy; its timing helps explain this second episode. All six surviving-node shards began that work almost simultaneously, approximately 300 seconds after their last logged SSTable receipt. The exact-build source contains a five-minute trigger \cite{r15,r16}. It provides an implementation-consistent explanation for the delay. Appendix~\ref{topology-reconstruction-and-temporal-precision} compares the receipt times, trigger behavior and candidate counts.
 
-Appendix C quantifies how many post-event requests exceeded lag
-thresholds. In particular, at least five seconds of lag affected
-21.488\% of post-event tablet expansion requests and 15.005\% of vnode
-contraction requests. These are request exposure fractions, not outage
-durations.
+Disk activity supports that interpretation. In a surrounding 35.5-second window, nodes 1-3 recorded approximately 2.46 GB of additional block reads and 2.37 GB of writes in total. Node 4's block counters stayed unchanged, and all 16 streaming series stayed flat. The evidence points to delayed local storage work, with no renewed streaming visible in these counters.
+
+The timing still has limits. Compaction-manager messages ended near 15:31:54, while slow operations and later file modification times extended to approximately 15:32:20. The logs cannot explain every millisecond of delay. They establish a temporal association among compaction, shared-host I/O and foreground work. The experiment cannot separate their individual causal contributions.
+
+The impact extends beyond the single worst request. At least five seconds of lag affected 21.488\% of post-event tablet expansion requests and 15.005\% of vnode contraction requests. Appendix~\ref{backlog-exposure} reports exposure at several thresholds. These percentages describe affected requests; they do not measure outage duration.
+
+\newpage
 
 \hypertarget{balance-cleanup-and-storage-history}{%
 \subsection{Balance, cleanup and storage
@@ -698,14 +472,7 @@ Final three & 65.625 / 68.750 / 65.625 / - & 65.48 / 63.78 / 70.74 /
 - \\
 \end{longtable}
 
-The four-node tablet endpoint had exactly 32 replicas per node and
-reported bytes of 400,686,101; 401,861,023; 400,458,341; and
-399,372,064. Their coefficient of variation was approximately 0.22\%,
-and maximum-minus-minimum divided by the mean was 0.62\%. Logical
-token-space variation was zero. The vnode four-node ownership
-coefficient of variation was approximately 4.753\%. These characterize
-balance in this dataset and token realization, within the observed
-cluster.
+At the four-node endpoint, tablets distributed both assignments and reported bytes evenly. Each node held exactly 32 replicas. Reported bytes were 400,686,101; 401,861,023; 400,458,341; and 399,372,064. Their coefficient of variation was approximately 0.22\%. The maximum-minus-minimum difference was 0.62\% of the mean. Logical token-space variation was zero. Vnode four-node ownership had a coefficient of variation of approximately 4.753\%. These measurements characterize this dataset, token realization and observed cluster.
 
 \begin{figure}[H]
 \centering
@@ -713,46 +480,23 @@ cluster.
 \caption{Tablet reported replica-size bytes and vnode effective ownership at lifecycle endpoints. The panels deliberately retain their respective units; Table~\ref{tab:5} supplies the direct token-space comparison.}\label{fig:figure_6_endpoint_balance}
 \end{figure}
 
-After vnode expansion, the original nodes initially retained their prior
-live-byte totals. Serial cleanup then ran for 4.398, 2.939 and 2.882
-seconds, a combined 10.219 seconds of command execution. The
-approximately 180.780-second wall interval also contained 170.561
-seconds of checks/operator gaps and is not cleanup service time. Cleanup
-is relevant after expansion because nodes can retain data for ranges
-they no longer own \cite{r13,r14}.
+Placement changes do not necessarily reclaim obsolete files immediately. After vnode expansion, the original nodes initially retained their previous live-byte totals. Cleanup removes data for ranges a node no longer owns \cite{r13,r14}. The serial cleanup commands took 4.398, 2.939 and 2.882 seconds, or 10.219 seconds combined. The surrounding wall interval lasted approximately 180.780 seconds. It included 170.561 seconds of checks/operator gaps, which are separate from cleanup service time.
 
-Post-cleanup old-node live bytes were 459,724,966; 417,238,653; and
-481,774,985. The reduction of 244,740,998 bytes cannot be assigned
-wholly to obsolete-data removal because cleanup and flushing changed
-storage state. Original-node memtables were zero, while node 4 still
-held 54,148,158 memtable bytes. Accordingly, the subsequent four-node
-phases were not cache- or memtable-matched.
+After cleanup, the original nodes reported 459,724,966; 417,238,653; and 481,774,985 live bytes. The total fell by 244,740,998 bytes. Cleanup and flushing both changed storage state, so obsolete-data removal cannot explain the entire reduction on its own. The original nodes had zero memtable bytes, while node 4 still held 54,148,158. The subsequent four-node phases therefore began with different cache and memtable histories.
 
-At the final vnode checkpoint, live bytes were 525,841,391; 523,193,434;
-and 633,114,947, with 2/4/6 SSTables and partition estimates
-491,495/488,925/592,081. The byte spread was 19.60\% of the mean.
-Tablets ended with 21/22/21 replicas and
-526,231,881/551,974,438/525,773,936 reported bytes, a spread of 4.90\%.
-The vnode disk totals reflect overlapping file contents and maintenance
-history as well as ownership. They should not be equated with the
-logical shares in Table~\ref{tab:5}.
+At the final vnode checkpoint, live bytes were 525,841,391; 523,193,434; and 633,114,947. The nodes held 2/4/6 SSTables and reported partition estimates of 491,495/488,925/592,081. Their byte spread was 19.60\% of the mean. Tablets ended with 21/22/21 replicas and 526,231,881/551,974,438/525,773,936 reported bytes, a spread of 4.90\%.
+
+The vnode totals raised a further question: how much of the apparent imbalance came from overlapping files? Disk totals combine ownership with file overlap and maintenance history. Table~\ref{tab:5} isolates the logical shares; the next audit examines the files.
 
 \hypertarget{resolving-the-vnode-final-partition-count-excess}{%
 \subsection{Resolving the vnode final partition-count
 excess}\label{resolving-the-vnode-final-partition-count-excess}}
 
-The final vnode estimates summed to 1,572,501, exceeding the nominal
-1,500,000 RF=2 node-key pairs by 72,501. To distinguish local file
-overlap from extra distinct replicas, preserved volumes were mounted
-read-only and audited with the matching offline SSTable tools
-\cite{r23}. The selected 12 files matched the pre-shutdown 2/4/6-file
-checkpoint. Two later shutdown-time files per node were excluded; the
-audit therefore addresses that retained file set, not every file
-ultimately present in the volumes.
+The final vnode estimates suggested more replicas than RF=2 required. They summed to 1,572,501, exceeding the nominal 1,500,000 node-key pairs by 72,501. A key can occur in several SSTables on one node, so counting entries alone cannot distinguish local overlap from extra distinct replicas.
 
-Per-file \texttt{rows\_count} metadata matched extracted partition-key
-counts in all 12 files. All IDs were within the dataset range, and no
-file contained repeated extracted IDs.
+We tested that distinction directly. We mounted the preserved volumes read-only and used the matching offline SSTable tools \cite{r23}. The selected 12 files matched the pre-shutdown 2/4/6-file checkpoint. We excluded two later shutdown-time files per node. The audit therefore covers that retained file set, rather than every file eventually present in the volumes.
+
+Before comparing nodes, we checked the extraction itself. In all 12 files, extracted partition-key counts matched the per-file \texttt{rows\_count} metadata. Every ID fell within the dataset range. No file contained repeated extracted IDs.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2000}}
@@ -794,18 +538,11 @@ Repeated entries across local files
 Total & 1,572,501 & 1,500,000 node-ID pairs & 72,501 \\
 \end{longtable}
 
-The union contained exactly 750,000 IDs. Every ID appeared on exactly
-two nodes; none appeared on one or three. Thus the entire 72,501-entry
-excess is explained by repeated keys across SSTables on the same node,
-with no unexplained residual in this selected file set. The distinct
-local counts also match the initial post-load counts.
+Deduplication resolved the apparent excess completely. The union contained exactly 750,000 IDs, and every ID appeared on exactly two nodes. None appeared on one or three. Repeated keys across local SSTables accounted for all 72,501 excess entries, leaving no unexplained residual in the selected file set. The distinct local counts also matched the initial post-load counts.
 
-The exact accounting identifies local file overlap. Its scope is the
-selected files; memtables, latest values, timestamps and an atomic
-historical snapshot were not reconstructed. The separate four-node
-post-cleanup estimate excess of 135,784 remains unallocated because that
-historical file set was not retained in the same form. Final-checkpoint
-overlap does not retrospectively prove its exact composition.
+This result establishes local file overlap within the selected files. The audit did not reconstruct memtables, latest values, timestamps or an atomic historical snapshot. A separate excess of 135,784 in the four-node post-cleanup estimate remains unallocated. We lack that historical file set in the same form. The final-checkpoint result cannot establish its earlier composition.
+
+\newpage
 
 \hypertarget{discussion}{%
 \section{Discussion}\label{discussion}}
@@ -814,92 +551,51 @@ overlap does not retrospectively prove its exact composition.
 \subsection{The mechanisms expose different notions of
 completion}\label{the-mechanisms-expose-different-notions-of-completion}}
 
-The tablet lifecycle involved migration, shard alignment,
-splitting/merging and subsequent redistribution. Its final boundary
-count and aggregate replica counts returned to their initial values
-while individual assignments changed. Vnode token ownership returned to
-its original signature, but local storage contents still reflected
-streaming and overlapping SSTables. Logical placement and physical file
-organization therefore followed different histories even when the
-cluster returned to three members.
+Returning to three members did not erase the lifecycle's history. Tablets migrated replicas, aligned shards, split and merged ranges, then redistributed again. Their final boundary count and aggregate replica counts matched the initial values, while individual assignments changed. Vnodes restored their original token-owner signature, but streaming and overlapping SSTables left a different local file history. Logical placement and physical storage therefore describe complementary outcomes.
 
-The delayed vnode maintenance result also separates topology convergence
-from service recovery. An unchanged ring and idle streaming counters
-establish the specified quiescence condition, but do not imply that all
-deferred storage work is finished. Conversely, a client can recover from
-backlog by issuing requests faster than the target schedule for a
-period, so a near-target phase average does not imply an undisturbed
-transition.
+The delayed vnode episode makes the operational consequence clear. An unchanged ring and idle streaming counters satisfy the defined quiescence condition even when deferred storage work remains. Client recovery adds another timescale. Once operations become faster, the serial client can temporarily exceed the target rate and clear its backlog. A near-target phase average can therefore hide substantial disruption within the phase.
 
 \hypertarget{multiple-outcomes-and-scope}{%
 \subsection{Multiple outcomes and
 scope}\label{multiple-outcomes-and-scope}}
 
-Tablets achieved equal four-node token-space shares and required no
-manual post-join cleanup in this lifecycle. Vnodes reached the
-placement-and-counter milestone earlier. Client backlog favored opposite
-treatments in the two transition directions, while offline extraction
-resolved the physical-count anomaly. Together these observations show
-why an elasticity comparison benefits from several endpoints rather than
-one completion time.
+The comparison yields several concrete results. Tablets reached equal four-node token-space shares without manual post-join cleanup in this lifecycle. Vnodes reached the placement-and-counter milestone earlier. The smaller client backlog belonged to a different treatment in each transition direction. Offline extraction then explained the final physical-count anomaly. Together, these findings show why engineers need several endpoints to evaluate elasticity.
 
-\textbf{Scope and limitations.} One lifecycle per treatment, fixed
-order, unequal baselines and inter-phase gaps, and vnode-only cleanup
-limit causal inference. Shared CPU, NVMe storage, filesystem cache and
-host memory couple all processes; the 161-MiB Windows observation alone
-cannot establish paging. Effective VM vCPU limits and exact configured
-memory were unavailable. Vnode logs support a deferred-compaction
-explanation, whereas the missing tablet logs leave its expansion
-slowdown without a server-side diagnosis. Source inspection establishes
-implementation-consistent mechanisms; historical runtime choices remain
-conditional where settings were not retained. Sampled quiescence covers
-only the recorded metadata and counters, and independent collector clock
-offsets were not calibrated. The evidence thus supports a descriptive
-single-host case study, with treatment-level repeatability and
-production generalization left open.
+\textbf{Scope and limitations.} The comparison covers one lifecycle per treatment in a fixed order. Unequal baselines, inter-phase gaps and vnode-only cleanup limit causal inference. All processes share CPU, NVMe storage, filesystem cache and host memory. The 161-MiB Windows observation alone cannot establish paging. I did not record effective VM vCPU limits or exact configured memory.
+
+The evidence also differs between treatments. Vnode logs support the deferred-compaction explanation; missing tablet logs leave its expansion slowdown without a server-side diagnosis. Source inspection identifies mechanisms consistent with the observations. It cannot establish historical runtime choices where settings are missing. Sampled quiescence covers only recorded metadata and counters, and the study did not calibrate independent collector clock offsets. These constraints support a descriptive single-host case study. Treatment-level repeatability and production generalization remain open.
 
 \hypertarget{future-work}{%
 \subsection{Future work}\label{future-work}}
 
-Repeated, counterbalanced runs on multiple hosts would estimate
-variability and separate treatment from execution history. Effective
-runtime configuration and symmetric server logs would strengthen
-mechanism attribution. Controlled maintenance and dedicated
-transfer-path instrumentation could isolate deferred storage effects and
-compare migration bytes on a common basis. Workload concurrency,
-replication and dataset size are further dimensions for testing the
-findings.
+Repeated, counterbalanced runs on multiple hosts could estimate variability and separate treatment effects from execution history. Recording effective runtime configuration and retaining server logs for both treatments would strengthen mechanism attribution. Controlled maintenance could isolate deferred storage effects. Instrumentation covering the same transfer paths could support a direct comparison of migration bytes. Further experiments could vary workload concurrency, replication and dataset size.
+
+\newpage
 
 \hypertarget{conclusion}{%
 \section{Conclusion}\label{conclusion}}
 
-Two workload-matched ScyllaDB lifecycles completed 1.08 million requests 
-each without reported workload failures and retained 750,000 logical keys.
-Tablets adapted range boundaries and replica placement; vnodes restored
-token ownership while retaining a different local file history. The main
-distinction is the separation between placement quiescence, deferred
-maintenance and client service: an early topology milestone can precede
-a substantial later backlog.
+This study compared how tablets and vnodes expand and contract under a matched workload. Both ScyllaDB lifecycles completed 1.08 million requests without reported workload failures and retained 750,000 logical keys. Their behavior differed in placement balance, redistribution, maintenance and client recovery. The central finding is that these processes finish at different times. An early topology milestone can precede a substantial later backlog.
 
-The audit explains the observations at several levels. Pending
-assignments reconcile tablet split/merge inheritance,
-implementation-specific paths explain why stream counters cannot be
-compared as total movement, and vnode logs associate deferred work with
-a later slowdown. Exact offline key extraction accounts for all 72,501
-excess final SSTable entries as overlap across files on the same node.
-These findings establish a concrete baseline for deeper, replicated
-studies of scaling behavior.
+Tablets achieved equal four-node replica counts and token-space shares, with closely balanced reported bytes. Vnodes retained unequal replicated shares despite equal token counts. Tablets returned from 64 to their original 32 boundaries, but 11 ranges ended on different host sets. Vnodes restored their original token ownership while retaining a different local file history. Aggregate endpoints therefore concealed distinct paths through the lifecycle.
+
+The tablet metadata explains those paths in detail. Pending assignments reconciled split inheritance and merge alignment. An intra-node shard migration aligned a merge pair, and a further inter-node migration followed the merge. These observations show why a stable tablet count alone cannot establish stable placement.
+
+The client comparison also changed with transition direction. Maximum expansion lag was 23.070 seconds for tablets and 8.810 seconds for vnodes. Maximum contraction lag was 4.425 and 23.654 seconds, respectively. Vnodes reached placement-and-counter quiescence earlier in both directions. Yet their largest contraction backlog arrived approximately five minutes after streaming reception, alongside synchronized deferred compaction and substantial disk activity. The source's five-minute trigger provides a mechanism consistent with that timing. The evidence associates these events without assigning the entire slowdown to compaction alone.
+
+The storage audit resolved another misleading signal. Exact offline key extraction accounted for all 72,501 excess final vnode SSTable entries as overlap across files on the same node. Within the selected pre-shutdown files, all 750,000 keys appeared on exactly two nodes. Summed file entries had overstated distinct replicas. The earlier four-node excess remains outside that exact accounting because its historical file set is unavailable.
+
+Monitoring coverage proved equally important. The collected stream counters omit the full tablet file-transfer path, so their totals cannot support a direct comparison of total movement. The missing tablet size reports also followed a specific pattern: outgoing replicas disappeared from size observations during transitions, and every destination appeared with a positive size in the next snapshot. Combining independent evidence explained these apparent inconsistencies.
+
+The contribution is a detailed comparative account of how the two mechanisms behaved and why individual metrics could mislead. The study connects placement changes, client backlog, deferred maintenance and physical key accounting. Unequal starting performance, shared resources, asymmetric logs and one lifecycle per treatment keep the performance comparison descriptive. In particular, the tablet expansion slowdown still lacks a specific server-side diagnosis. Repeated studies can test how consistently these differences recur. For the observed lifecycles, the practical lesson is clear: evaluate placement convergence, storage completion and client recovery together.
 
 \hypertarget{data-and-code-availability}{%
 \section{Data and code
 availability}\label{data-and-code-availability}}
 
-The workload, monitoring and analysis scripts, Docker definitions,
-derived summaries and figure sources are available at the project 
-repository \cite{r35}. The approximately 949~MiB of raw observations 
-is not included in the repository; it is available from the author on 
-request, with hashes in the manifest for verification. Appendix~\ref{reproducibility-and-preserved-evidence}
-describes the preserved evidence.
+The project repository provides the workload, monitoring and analysis scripts, Docker definitions, derived summaries and figure sources \cite{r35}. I retain approximately 949~MiB of raw observations separately and will provide them on request through the \href{https://github.com/GiorgiGogsadze/Scylla-Research/issues}{repository issue tracker}. The analysis manifest hashes the derived outputs only. Appendix~\ref{reproducibility-and-preserved-evidence} describes the preserved evidence and the repository revision inspected.
+
+\newpage
 
 \appendix
 
@@ -911,35 +607,15 @@ audit}\label{measurement-and-evidence-audit}}
 \subsection{Clocks and client
 accounting}\label{clocks-and-client-accounting}}
 
-Across all ten measured request files, indices were valid, monotonic
-starts increased strictly, and no inter-operation gap was below -0.01
-ms. UTC starts nevertheless stepped backward 38 times in tablet files
-and 50 in vnode files; 83 UTC operation spans were negative. The largest
-UTC backstep was 2.157 ms, and the largest adjacent change in
-UTC-versus-monotonic drift was 5.354 ms. UTC spans were 9.450-16.834 ms
-shorter than monotonic spans in 120-second phases and 71.824-92.904 ms
-shorter in 900-second phases. These small wall-clock effects cannot
-explain the multi-second monotonic scheduling backlogs.
+The clock audit separates wall-clock artifacts from client backlog. Across all ten measured request files, indices were valid and monotonic starts increased strictly. No inter-operation gap fell below -0.01 ms. UTC starts nevertheless stepped backward 38 times in tablet files and 50 times in vnode files. Another 83 UTC operation spans were negative. The largest UTC backstep was 2.157 ms. The largest adjacent change in UTC-versus-monotonic drift was 5.354 ms.
 
-The workload's completion banner covers final CSV/state persistence but
-not every setup or teardown step. For example, the vnode final warmup
-banner reported 485.92/s, whereas its first-request-to-last-completion
-span was 30.204 seconds, approximately 496.61/s. These values use
-different timing boundaries. UTC-derived request-span rates are retained
-as descriptive summaries; they are not substituted for monotonic lag or
-operation duration.
+UTC spans were 9.450-16.834 ms shorter than monotonic spans in 120-second phases. The difference was 71.824-92.904 ms in 900-second phases. These small wall-clock effects cannot explain the multi-second monotonic scheduling backlogs.
 
-The apparently identical 51.265-second values have different endpoints
-and clocks. The tablet topology interval runs from the join command at
-17:41:59.0830105 UTC to the first accepted observation at
-17:42:50.347804 UTC: 51.2647935 seconds, rounded to 51.265. The recorded
-raw-request audit gives 51.265243 monotonic seconds for the 15,000
-requests scheduled in seconds 120-150. Their independent UTC endpoints,
-17:41:58.859705 and 17:42:50.120515, span 51.260810 seconds and are
-corroborated by the archived five-second bins. The near equality is
-coincidental. Monotonic accounting decomposes that request window into
-49.182314 seconds inside operations and 2.082929 between operations; the
-preceding window decomposes into 27.012917 and 2.785911 seconds.
+Different timing boundaries also explain apparently inconsistent throughput figures. The workload's completion banner includes final CSV/state persistence but excludes some setup and teardown work. The vnode final warmup banner reported 485.92/s. Its first-request-to-last-completion span was 30.204 seconds, or approximately 496.61/s. We retain UTC-derived request-span rates as descriptive summaries. Monotonic fields remain the basis for lag and operation duration.
+
+Two intervals happen to round to 51.265 seconds. They have different endpoints and use different clocks. The tablet topology interval starts with the join command at 17:41:59.0830105 UTC and ends with the first accepted observation at 17:42:50.347804 UTC. It lasts 51.2647935 seconds, rounded to 51.265.
+
+The raw-request audit instead records 51.265243 monotonic seconds for the 15,000 requests scheduled in seconds 120-150. Their UTC endpoints are 17:41:58.859705 and 17:42:50.120515, giving 51.260810 seconds. The archived five-second bins corroborate those endpoints. The near equality is coincidental. Monotonic accounting divides this request window into 49.182314 seconds inside operations and 2.082929 between them. For the preceding window, those components are 27.012917 and 2.785911 seconds.
 
 \hypertarget{coverage-and-parser-corrections}{%
 \subsection{Coverage and parser
@@ -982,107 +658,43 @@ Contraction & 863 / 900 / 270 & 435 / 893 / 259 \\
 Final three & 114 / 120 / 35 & 58 / 120 / 35 \\
 \end{longtable}
 
-Nine tablet size snapshots were incomplete: seven during expansion and
-two during contraction. They contained 12 missing-replica reports, ten
-at \texttt{end\_migration} and two at \texttt{cleanup}. Every missing
-host was the outgoing replica. Token sets still matched. The destination
-had no reported size in the same snapshot in all 12 cases, but appeared
-with a positive size, current placement and a cleared transition in the
-immediately following snapshot, 1.021-1.087 seconds later. Three cases
-crossed the split, so their next sizes refer to child ranges rather than
-an unchanged parent. Incomplete samples were excluded from byte-balance
-endpoints and never interpreted as zero-size or unavailable replicas.
+Nine tablet size snapshots were incomplete: seven during expansion and two during contraction. They contained 12 missing-replica reports. Ten occurred at \texttt{end\_migration}, and two occurred at \texttt{cleanup}. Every missing host was an outgoing replica, and the token sets still matched.
 
-The ring parser accepts unknown load (\texttt{?}) as well as numeric
-sizes: seven node-4 snapshots contain this form, with all 256 node-4
-rows present. All 5,358 raw ring-file hashes and address counts passed
-validation. Docker size parsing accepts scientific notation such as
-\texttt{1e+03MB}. The SSTable key extractor handles records crossing
-input-chunk boundaries and was validated against all 12 selected files'
-metadata, including a 5,555-key test case.
+In all 12 cases, the same snapshot lacked a destination size. The immediately following snapshot showed a positive destination size, current placement and a cleared transition, 1.021-1.087 seconds later. Three cases crossed the split, so the next size describes a child range. We excluded incomplete samples from byte-balance endpoints. A missing size observation does not establish a zero-size or unavailable replica.
 
-The vnode expansion contributions were 135,370,928, 153,890,512 and
-160,899,032 bytes from nodes 1-3. Contraction recorded the same amounts
-in the reverse direction. Tablet expansion contributions were 46,152,
-184,898 and 138,312 bytes. The audited series showed no counter
-decreases. Node 4 was not initially observable, however: its first
-metrics arrived approximately 7.587 seconds after tablet join initiation
-and 6.805 seconds after vnode initiation.
+The parsers handle the formats present in the saved evidence. Seven ring snapshots report node-4 load as \texttt{?}, while retaining all 256 of its rows. The ring parser accepts that form alongside numeric sizes. All 5,358 raw ring-file hashes and address counts passed validation. Docker size parsing accepts scientific notation such as \texttt{1e+03MB}. The SSTable key extractor handles records that cross input-chunk boundaries. Its counts matched metadata in all 12 selected files, including the 5,555-key test case.
+
+Nodes 1-3 contributed 135,370,928, 153,890,512 and 160,899,032 bytes to the vnode expansion counters. Contraction recorded the same amounts in reverse. Tablet expansion contributions were 46,152, 184,898 and 138,312 bytes. None of the audited series decreased. Initial visibility remains a limit: node 4 first supplied metrics approximately 7.587 seconds after tablet join initiation and 6.805 seconds after vnode initiation.
 
 \hypertarget{acquisition-and-operational-qualifications}{%
 \subsection{Acquisition and operational
 qualifications}\label{acquisition-and-operational-qualifications}}
 
-The complete tablet record contains 6,947 snapshot-index entries, 7,160
-complete streaming samples and 7,194 Docker rows. The vnode record
-contains 5,358 indexed ring samples, 10,976 complete streaming samples
-and 10,794 Docker rows. Event logs contain 16 tablet and 22 vnode
-records, including five phase starts and ends per treatment and vnode
-cleanup events.
+The complete tablet record contains 6,947 snapshot-index entries, 7,160 complete streaming samples and 7,194 Docker rows. The vnode record contains 5,358 indexed ring samples, 10,976 complete streaming samples and 10,794 Docker rows. Event logs contain 16 tablet records and 22 vnode records. These include five phase starts and ends per treatment, plus vnode cleanup events.
 
-Health checks reported zero pending tasks and no outgoing streams at the
-stated checkpoints. Separate container inspections reported no restarts
-or OOM flags at inspection times; the Docker CSV did not continuously
-record those fields. Startup, cleanup and departure warnings are
-preserved in vnode logs. Reclaim warnings of 44, 76 and 124 ms occurred
-during node-1 cleanup outside the measured expansion arm. Transient
-gossip/raft messages accompanied membership changes, and SIGTERM/abort
-messages accompanied stopping node 4. Their timing is documented without
-declaring every warning harmless.
+Health checks reported zero pending tasks and no outgoing streams at the stated checkpoints. Container inspections found no restarts or OOM flags at inspection time. The Docker CSV did not record those fields continuously.
 
-Decommissioning and stopping the departed process were separate events.
-The fourth process remained observable after leaving the ring, so
-resource and streaming collectors legitimately continued to report four
-processes. Confirmed process absence occurred about 149.962 seconds
-after tablet decommission initiation and 356.808 seconds after vnode
-initiation. Unchanged three-node placement was verified in observations
-taken after those stops. A failed post-decommission \texttt{tablestats} 
-call is not a zero-partition reading: tablets returned an HTTP 500 
-closed snapshot-gate error, while vnodes returned exit code 4 with 
-partial output.
+Retained vnode logs include startup, cleanup and departure warnings. Node-1 cleanup produced reclaim warnings of 44, 76 and 124 ms outside the measured expansion arm. Transient gossip/raft messages accompanied membership changes. SIGTERM/abort messages accompanied the stop of node 4. This timing documents the warnings without establishing that every warning was harmless.
 
-Inter-phase gaps between one phase-end marker and the next phase-start
-marker were approximately 1,137/761/1,456/553 seconds for tablets and
-3,574/1,541/1,552/1,290 seconds for vnodes. They include checks and
-warmups and are not pure idle durations. The repeated vnode expansion
-warmup improved from 470.16/s with 1.771-second maximum lag to 498.52/s
-with 0.258-second maximum lag. Neither warmup was included as a measured
-replicate.
+After decommissioning, node 4's process remained observable even though it had left the ring. Resource and streaming collectors therefore continued to report four processes. Confirmed process absence came about 149.962 seconds after tablet decommission initiation and 356.808 seconds after vnode initiation. Later observations verified unchanged three-node placement.
 
-Summed observed container-memory peaks were approximately 6.12/6.20 GiB
-for tablet/vnode expansion and 6.32/6.42 GiB for contraction. Maximum
-sampled single-container CPU percentages were 189.60/86.76 during
-expansion and 142.75/144.50 during contraction; Docker percentages can
-exceed 100\% for a multi-core process. These resource samples localize
-activity but do not establish its cause.
+Post-decommission statistics were partial. Tablets returned an HTTP 500 closed snapshot-gate error from \texttt{tablestats}. Vnodes returned exit code 4 with partial output. Neither failed call establishes a zero-partition count.
+
+The gaps from one phase-end marker to the next phase-start marker were approximately 1,137/761/1,456/553 seconds for tablets. Vnode gaps were 3,574/1,541/1,552/1,290 seconds. These intervals include checks and warmups as well as idle time. Repeating the vnode expansion warmup changed its rate from 470.16/s to 498.52/s and its maximum lag from 1.771 seconds to 0.258 seconds. Both warmups remain outside the measured replicates.
+
+Summed observed container-memory peaks were approximately 6.12/6.20 GiB for tablet/vnode expansion and 6.32/6.42 GiB for contraction. Maximum sampled single-container CPU percentages were 189.60/86.76 during expansion and 142.75/144.50 during contraction. Docker CPU percentages can exceed 100\% for a multi-core process. These samples locate activity in time but do not establish its cause.
+
+\newpage
 
 \hypertarget{topology-reconstruction-and-temporal-precision}{%
 \section{Topology reconstruction and temporal
 precision}\label{topology-reconstruction-and-temporal-precision}}
 
-The tablet expansion predecessor was recorded at +50.232 seconds with 32
-ranges and 61 of 64 size observations; the selected quiescence-onset 
-snapshot at +51.265 had 64 ranges and 128 observations. During contraction, 
-a cleanup state at +16.651 preceded a cleared assignment at +17.691. 
-Tablet timestamps were recorded after sequential collection rather than 
-marking a common atomic acquisition instant, so their roughly one-second 
-gaps are observational brackets, not strict physical-time bounds.
+Sampling brackets the observed tablet transitions. The expansion predecessor at +50.232 seconds had 32 ranges and 61 of 64 size observations. The selected quiescence-onset snapshot at +51.265 had 64 ranges and 128 observations. During contraction, a cleanup state at +16.651 preceded a cleared assignment at +17.691. The collector recorded timestamps after sequential collection. They therefore mark neither a common atomic acquisition instant nor strict physical-time bounds. The roughly one-second gaps are observational brackets.
 
-For vnode expansion, sample 2195 ran from +20.506 to +21.111 seconds and
-was not all normal. Sample 2196 ran from +22.566 to +23.227 and was all
-normal. During contraction, the first complete three-node sample ran
-from +9.283 to +9.804, but the selected joint-quiescence sample ran from
-+11.323 to +12.026. The independently observed last counter increase at
-+10.008 rules out using the earlier ring observation as the joint
-endpoint.
+For vnode expansion, sample 2195 ran from +20.506 to +21.111 seconds and still showed a non-normal state. Sample 2196 ran from +22.566 to +23.227 with every row normal. During contraction, the first complete three-node sample ran from +9.283 to +9.804. The counters last increased at +10.008, so that earlier sample cannot start the joint quiet window. The selected joint-quiescence sample ran from +11.323 to +12.026.
 
-A candidate-window scan rejected earlier observations because of state,
-placement or changing counters. In expansion/contraction order, tablet
-rejection counts were 48/13 for state and 0/4 for placement; vnode
-counts were 10/4 for state and 0/1 for changing counters. The accepted
-placement windows spanned at least 60 seconds, as did the aligned
-counter windows. This retrospective check avoids selecting a visually
-convenient first normal snapshot.
+The window scan checked earlier candidates as well as the accepted onset. In expansion/contraction order, tablet state checks rejected 48/13 candidates and placement checks rejected 0/4. Vnode state checks rejected 10/4, and changing counters rejected 0/1. Both the accepted placement windows and their aligned counter windows spanned at least 60 seconds. This retrospective scan bases the selection on the stated criterion rather than the first visually normal snapshot.
 
 \begin{longtable}[]{@{}lrr@{}}
 \caption{Changes between sampled metadata states. Splits and merges
@@ -1107,44 +719,27 @@ Assignment additions / removals, summed & 80 / 16 & 34 / 98 \\
 Endpoint assignment additions / removals & 80 / 16 & 16 / 80 \\
 \end{longtable}
 
-The exact-build allocator source provides a further explanation of the
-count sequence \cite{r22}. Its default minimum of ten replicas per
-eligible shard, divided by RF=2 and rounded to a power of two, predicts
-32 tablets for six eligible shards and 64 for eight; excluding the
-draining node returns the calculation to 32. The observed replica-size
-means near the decisions were only 23.872 MiB and 11.939 MiB, far below
-the source's 5-GiB target and size-based split threshold. No explicit
-initial-count override was found in retained configuration/schema
-evidence. This makes the per-shard minimum a source-supported
-explanation, subject to missing historical allocator inputs: runtime
-configuration and tablet decision logs were not preserved.
+The allocator source offers a reason for the count sequence \cite{r22}. Its default minimum is ten replicas per eligible shard. Dividing by RF=2 and rounding to a power of two predicts 32 tablets for six eligible shards and 64 for eight. Excluding the draining node returns the prediction to 32.
 
-All six surviving-node shards began off-strategy compaction within a
-48-ms interval, approximately 299.805-299.860 seconds after their last
-logged receipt of table SSTables. Each shard reported 11 received
-SSTables and 11 compaction candidates. Exact-build source contains a
-five-minute off-strategy trigger and rearming behavior \cite{r15,r16},
-providing a mechanism consistent with this synchronized delay. Matching
-counts do not prove the identity of every candidate file or the exact
-timer anchor.
+Observed replica-size means near the decisions were only 23.872 MiB and 11.939 MiB. Both sit far below the source's 5-GiB target and size-based split threshold. Retained configuration/schema evidence contains no explicit initial-count override. The per-shard minimum therefore provides a source-supported explanation. Missing historical runtime configuration and tablet decision logs keep that attribution conditional.
 
-The intra-node merge-alignment example ended at token
-6341068275337658367. Node 2 changed shard 0 to 1 while node 3 remained
-on shard 1, matching the adjacent range ending at 6052837899185946623.
-The post-merge surviving-node migration ended at 576460752303423487.
-Four split parents inherited pending placement at boundaries
--1729382256910270465, -1152921504606846977, -576460752303423489 and
-4035225266123964415. Their sampled stages were respectively
-\texttt{write\_both\_read\_new}, \texttt{cleanup},
-\texttt{end\_migration} and \texttt{cleanup}.
+The compaction timing points to deferred work on the received SSTables. All six surviving-node shards began off-strategy compaction within a 48-ms interval. Each start followed the shard's last logged table-SSTable receipt by approximately 299.805-299.860 seconds. Every shard reported 11 received SSTables and 11 compaction candidates.
 
-The merge exception combined boundaries -288230376151711745 and -1. The
-first child had already moved from node 4 to node 1. The second moved
-from node 4 to node 3 and then had a pending node-1 assignment in
-\texttt{use\_new}. The merged range retained nodes 2 and 1. The source's
-minimum-replica calculation explains why splitting and merging were
-plausible at small table sizes, but source defaults and recorded states
-remain different kinds of evidence.
+The exact-build source contains a five-minute off-strategy trigger and rearming behavior \cite{r15,r16}. That mechanism fits the synchronized delay. Matching counts alone cannot identify every candidate file or establish the exact timer anchor.
+
+The intra-node alignment example ends at token 6341068275337658367. Node 2 changed shard 0 to 1 while node 3 stayed on shard 1. The result matches the adjacent range ending at 6052837899185946623. The later migration between surviving nodes ends at 576460752303423487.
+
+Four split parents inherited pending placement. Their boundaries and sampled stages were:
+\begin{itemize}
+\item -1729382256910270465: \texttt{write\_both\_read\_new};
+\item -1152921504606846977: \texttt{cleanup};
+\item -576460752303423489: \texttt{end\_migration};
+\item 4035225266123964415: \texttt{cleanup}.
+\end{itemize}
+
+The merge exception combines boundaries -288230376151711745 and -1. The first child had already moved from node 4 to node 1. The second moved from node 4 to node 3, then showed a pending node-1 assignment in \texttt{use\_new}. The merged range retained nodes 2 and 1. These states reconstruct the observed sequence. The source's minimum-replica calculation separately explains why such small tables could plausibly split and merge. Source defaults and sampled states provide different kinds of evidence.
+
+\newpage
 
 \hypertarget{backlog-exposure}{%
 \section{Backlog exposure}\label{backlog-exposure}}
@@ -1202,62 +797,31 @@ Vnode contraction & 389,920 & 25.548\% & 15.005\% & 10.205\% &
 6.011\% \\
 \end{longtable}
 
-The longest consecutive runs at or above five seconds were 62,967
-requests spanning 125.922 seconds of actual starts for tablet expansion,
-17,453 spanning 34.882 seconds for vnode expansion, and 58,507 spanning
-116.993 seconds for vnode contraction. The first and last affected
-completion intervals were approximately +23.668 to +218.595, +26.833 to
-+61.715, and +314.867 to +431.860 seconds respectively, using first
-start and last completion. No tablet contraction request crossed that
-threshold.
+Consecutive affected requests show how backlog persisted. At or above five seconds of lag, the longest run contained 62,967 requests spanning 125.922 seconds of actual starts for tablet expansion. The corresponding vnode runs contained 17,453 requests spanning 34.882 seconds for expansion and 58,507 spanning 116.993 seconds for contraction.
 
-At the one-second threshold, the last affected completion occurred at
-+772.552 seconds for tablet expansion, +776.085 for tablet contraction,
-+66.816 for vnode expansion and +550.062 for vnode contraction. Those
-endpoints include later excursions and must not be described as
-uninterrupted event-caused outages. The thresholds were retrospective
-diagnostics, not preregistered service-level objectives.
+From the first affected start to the last affected completion, the intervals were approximately +23.668 to +218.595 seconds for tablet expansion, +26.833 to +61.715 for vnode expansion, and +314.867 to +431.860 for vnode contraction. Every offset in this appendix is relative to the corresponding topology-command start. No tablet contraction request crossed the five-second threshold.
+
+At the one-second threshold, the last affected completion occurred at +772.552 seconds for tablet expansion and +776.085 for tablet contraction. Vnode endpoints were +66.816 for expansion and +550.062 for contraction. These endpoints include later excursions, rather than continuous event-caused outages. We selected the thresholds retrospectively for diagnosis; they were not preregistered service-level objectives.
+
+\newpage
 
 \hypertarget{reproducibility-and-preserved-evidence}{%
 \section{Reproducibility and preserved
 evidence}\label{reproducibility-and-preserved-evidence}}
 
-The database build ID was
-\nolinkurl{b14b47fb9cb96594eea92615544ef9e54695658a}; source inspection
-used commit \texttt{10c95df28f74}. The workload SHA-256 was
-\nolinkurl{10e8665f776bdb0ff5b182087181bb76f1bd2b4c9cfbcde3a7326065f3c69090},
-matching both treatments' recorded manifests and the inspected
-implementation. Phase seeds, dataset seed, rate, durations and read
-percentage were saved in the run plans. Both setup monitor images
-contained Python 3.12.14 and scylla-driver 3.29.11; their digests
-differ, so this verifies the dependencies but not the identity of every
-historical workload container.
+The database build ID was \nolinkurl{b14b47fb9cb96594eea92615544ef9e54695658a}. Source inspection used commit \texttt{10c95df28f74}. The workload SHA-256 was \nolinkurl{10e8665f776bdb0ff5b182087181bb76f1bd2b4c9cfbcde3a7326065f3c69090}. It matched both treatments' recorded manifests and the inspected implementation. Run plans saved phase seeds, dataset seed, rate, durations and read percentage. Both setup monitor images contained Python 3.12.14 and scylla-driver 3.29.11. Their image digests differ. These checks verify those dependencies, while leaving the identity of every historical workload container unverified.
 
-The repository \cite{r35} contains the workload, loading and monitoring
-scripts (\texttt{monitoring/}), the Docker Compose definitions
-(\texttt{docker/}), the primary analysis and focused-check scripts, and
-the derived outputs (\texttt{data/analysis/primary-comparison/}): 11
-manifest-listed files plus \texttt{manifest.json}, all 23 structural
-checks passing and output hashes matching the manifest. Figure data and
-the script that regenerates the figures are in \texttt{figures/}. The
-archived generator reports version 1.0.0 and the repository contains
-version [state which]; clean regeneration with the exact historical
-generator has not been demonstrated. The approximately 949~MiB of raw
-observations is not included because of hosting limits; it is preserved
-by the author, and the manifest hashes allow verification of any copy
-supplied. The offline SSTable audit is represented in the repository by
-[the extraction script and per-file outputs / only the statistics file
-for the first node of the first audited set]; Table~\ref{tab:D1}
-therefore [can be regenerated from the repository / is reported from
-the preserved volumes].
+I inspected the repository \cite{r35} at commit \href{https://github.com/GiorgiGogsadze/Scylla-Research/tree/d568a072f59c9439bcf6a3dea65923b50214a19f}{\texttt{d568a072f59c}} on 25 September 2026. That revision provides workload, loading and monitoring scripts in \path{monitoring/}, Docker Compose definitions in \path{docker/}, and primary analysis and focused-check scripts.
 
-All four volumes per treatment were preserved after container removal
-\cite{r8,r9}, and eight vnode stdout/stderr log files were retained.
-The offline final-file audit selected the pre-shutdown set using the
-recorded inventory and modification times, with a cutoff before later
-shutdown-created files. Table~\ref{tab:D1} lists the per-file counts;
-filenames omit the common \texttt{mt-} prefix and
-\texttt{-big-Data.db} suffix.
+The directory \path{data/analysis/primary-comparison/} contains 11 manifest-listed outputs plus \texttt{manifest.json}. The archived analysis reports that all 23 structural checks passed. Published file hashes differ from the manifest because of line endings. Converting LF endings to Windows CRLF reproduces all 11 recorded hashes. Verification against that manifest therefore requires restoring the original line endings.
+
+Figure-generation data and code reside in \path{figures/figure-data/} and \path{figures/make_figures.py}. The manuscript graphics and editable topology diagram reside in \path{Paper/figures/}.
+
+Both the archived manifest and the repository's primary analysis script report version 1.0.0. Matching labels alone cannot establish byte-for-byte identity with the historical generator. The study has not demonstrated clean regeneration from raw observations with that generator. The manifest hashes derived outputs only and contains no raw-file checksums.
+
+The public offline-audit directory contains \path{data/analysis/vnode-sstable-audit/node1-first-statistics.json}, a metadata dump for one node-1 SSTable. That revision lacks the complete partition-key extraction script and per-file key outputs. Table~\ref{tab:D1} reports the completed volume audit. Reproducing it requires the additional extraction materials and access to the selected SSTables.
+
+I preserved all four volumes per treatment after removing the containers \cite{r8,r9}, along with eight vnode stdout/stderr log files. The offline audit selected pre-shutdown files using the recorded inventory and modification times. Its cutoff excluded later shutdown-created files. Table~\ref{tab:D1} lists the counts per file. The filenames omit their common \texttt{mt-} prefix and \texttt{-big-Data.db} suffix.
 
 \begin{longtable}[]{@{}llr@{}}
 \caption{Exact selected-file key counts supporting
