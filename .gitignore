@@ -15,3 +15,5 @@ Paper/*
 !Paper/paper.bbl
 
 *.zip
+*.pptx
+*.docx
