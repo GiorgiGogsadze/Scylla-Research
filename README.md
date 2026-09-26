@@ -1,5 +1,9 @@
 # ScyllaDB: Tablets vs. Vnodes
 
+[**The Academic Paper**](Paper/paper.pdf)
+
+[**The Presentation**](Presentation/Scaling_Databases_Vnodes_vs_Tablets.pdf)
+
 What happens when you add or remove a database node while it is handling requests?
 
 This project compares **tablets** and **vnodes**, two ways ScyllaDB distributes data across nodes. It follows how data moves, how evenly nodes share it, and how these changes affect the client.
