@@ -41,18 +41,6 @@ The experiments ran on a Windows laptop using Docker. This is a detailed case st
 - **The storage audit explained an apparent replica excess.** All 72,501 extra entries in the selected vnode SSTables came from repeated keys across files on the same node. Every key appeared on exactly two nodes in the audited files.
 - **Monitoring counters need context.** The collected streaming counters did not cover the full tablet file-transfer path, so their totals cannot directly compare total data movement.
 
-## What is in this repository?
-
-| Location                                                                 | Contents                                                 |
-| ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [`Paper/`](Paper/)                                                       | Research paper and LaTeX sources                         |
-| [`monitoring/`](monitoring/)                                             | Data-loading, workload, monitoring, and analysis scripts |
-| [`docker/`](docker/)                                                     | Docker Compose configurations                            |
-| [`data/analysis/primary-comparison/`](data/analysis/primary-comparison/) | Derived results and analysis checks                      |
-| [`figures/`](figures/)                                                   | Figure-generation code, data, and images                 |
-
-Start with the [research paper](Paper/paper.pdf) for the full results, explanations, and limitations.
-
 ## Data and reproducibility
 
 The repository contains code and derived results. Approximately **949 MiB of raw observations** are stored separately and are available on request through [GitHub Issues](https://github.com/GiorgiGogsadze/Scylla-Research/issues).
@@ -61,5 +49,6 @@ The paper documents the available evidence and the additional materials needed t
 
 ## Author
 
-**Giorgi Gogsadze**  
-Kutaisi International University, Georgia
+**Giorgi Gogsadze**<br>
+[GitHub](https://github.com/GiorgiGogsadze) | [LinkedIn](https://www.linkedin.com/in/gogsadze-giorgi)<br>
+Kutaisi, Georgia, 2026
