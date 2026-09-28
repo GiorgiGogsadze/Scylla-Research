@@ -23,7 +23,7 @@
 
 \bibitem[DeCandia et~al.(2007)]{r24}
 Giuseppe DeCandia et~al.
-\newblock {Dynamo: Amazon’s Highly Available Key-value Store}.
+\newblock {Dynamo: Amazon's Highly Available Key-value Store}.
 \newblock In \emph{Proceedings of SOSP}, 2007.
 \newblock URL
   \url{https://www.amazon.science/publications/dynamo-amazons-highly-available-key-value-store}.
@@ -45,13 +45,13 @@ Fay Chang et~al.
 
 \bibitem[Kivity(2024)]{r27}
 Avi Kivity.
-\newblock {How We Implemented ScyllaDB’s “Tablets}.
+\newblock {How We Implemented ScyllaDB's "Tablets"}.
 \newblock \url{https://www.scylladb.com/2024/06/17/how-tablets/}, 2024.
 \newblock Accessed September 2026.
 
 \bibitem[Osipov(2024)]{r28}
 Konstantin Osipov.
-\newblock {ScyllaDB’s Safe Topology and Schema Changes on Raft}.
+\newblock {ScyllaDB's Safe Topology and Schema Changes on Raft}.
 \newblock
   \url{https://www.scylladb.com/2024/06/18/scylladbs-safe-topology-and-schema-changes-on-raft/},
   2024.
@@ -91,7 +91,7 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 \bibitem[{ScyllaDB}(2026{\natexlab{c}})]{r21}
 {ScyllaDB}.
 \newblock {tools/scylla-nodetool.cc (estimated\_partition\_count) and
-  api/column\_family.cc (get\_estimated\_row\_count), commit 10c95df28f74. ;}.
+  api/column\_family.cc (get\_estimated\_row\_count)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/tools/scylla-nodetool.cc};
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/api/column_family.cc},
@@ -187,10 +187,9 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 \bibitem[{ScyllaDB}(2026{\natexlab{m}})]{r22}
 {ScyllaDB}.
 \newblock {service/tablet\_allocator.cc (eligible shards, per-shard minimum,
-  sizing candidates and power-of-two decisions), db/config.cc (defaults),
+  sizing candidates, power-of-two decisions), db/config.cc (defaults),
   db/tablet\_options.hh (default power-of-two setting), and
-  service/tablet\_allocator\_fwd.hh (5-GiB target), commit 10c95df28f74. ; ;
-  ;}.
+  service/tablet\_allocator\_fwd.hh (5-GiB target)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/service/tablet_allocator.cc};
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/db/config.cc};
@@ -201,8 +200,8 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{n}})]{r16}
 {ScyllaDB}.
-\newblock {streaming/stream\_session.cc, commit 10c95df28f74,
-  offstrategy\_trigger and mutation-fragment receiver}.
+\newblock {streaming/stream\_session.cc (offstrategy\_trigger and
+  mutation-fragment receiver)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_session.cc},
   2026{\natexlab{n}}.
@@ -210,8 +209,8 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{o}})]{r17}
 {ScyllaDB}.
-\newblock {streaming/stream\_manager.cc, commit 10c95df28f74, metric
-  registration and update\_progress}.
+\newblock {streaming/stream\_manager.cc (metric registration and
+  update\_progress)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_manager.cc},
   2026{\natexlab{o}}.
@@ -219,8 +218,8 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{p}})]{r18}
 {ScyllaDB}.
-\newblock {streaming/stream\_transfer\_task.cc, commit 10c95df28f74,
-  mutation-stream progress callback}.
+\newblock {streaming/stream\_transfer\_task.cc (mutation-stream progress
+  callback)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_transfer_task.cc},
   2026{\natexlab{p}}.
@@ -228,9 +227,8 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{q}})]{r19}
 {ScyllaDB}.
-\newblock {streaming/stream\_blob.cc, commit 10c95df28f74,
-  tablet\_stream\_files, stream-blob receiver and returned file-byte
-  accounting}.
+\newblock {streaming/stream\_blob.cc (tablet\_stream\_files, stream-blob
+  receiver and returned file-byte accounting)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/streaming/stream_blob.cc},
   2026{\natexlab{q}}.
@@ -238,8 +236,8 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{r}})]{r20}
 {ScyllaDB}.
-\newblock {service/storage\_service.cc and db/config.cc, commit 10c95df28f74,
-  tablet file-stream selection and configuration default. ;}.
+\newblock {service/storage\_service.cc and db/config.cc (tablet file-stream
+  selection and configuration default)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/service/storage_service.cc};
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/db/config.cc},
@@ -248,8 +246,7 @@ Brian~F. Cooper, Adam Silberstein, Erwin Tam, Raghu Ramakrishnan, and Russell
 
 \bibitem[{ScyllaDB}(2026{\natexlab{s}})]{r15}
 {ScyllaDB}.
-\newblock {replica/table.cc, commit 10c95df28f74, timer methods and constructor
-  callback}.
+\newblock {replica/table.cc (timer methods and constructor callback)}.
 \newblock
   \url{https://github.com/scylladb/scylladb/blob/10c95df28f74/replica/table.cc},
   2026{\natexlab{s}}.
